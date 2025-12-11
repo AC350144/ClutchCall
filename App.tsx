@@ -4,6 +4,7 @@ import { BankrollCard } from './components/BankrollCard';
 import { AIRecommendations } from './components/AIRecommendations';
 import { BetParser } from './components/BetParser';
 import { BetSlip } from './components/BetSlip';
+import { ChatWidget } from './components/ChatWidget';
 
 export interface BetLeg {
   id: string;
@@ -93,6 +94,8 @@ export default function App() {
           />
         </div>
       </div>
+      
+      <ChatWidget />
     </div>
   );
 }

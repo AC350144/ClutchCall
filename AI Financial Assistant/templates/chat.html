@@ -2,91 +2,274 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AI Financial Assistant</title>
+    <title>ClutchCall AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #eef1f5;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #020617;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
+            padding: 20px;
         }
+
         .chat-container {
-            width: 400px;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 480px;
+            background: linear-gradient(to bottom, #0f172a, #1e293b);
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            border: 1px solid #334155;
+            height: 600px;
         }
+
         .chat-header {
-            background: #007bff;
-            color: white;
-            padding: 12px;
-            text-align: center;
-            font-weight: bold;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #334155;
         }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-icon svg {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
+
+        .header-text h1 {
+            color: #f8fafc;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-text h1 .badge {
+            background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .header-text p {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
         .chat-box {
             flex: 1;
-            padding: 12px;
+            padding: 20px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
+
+        .chat-box::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-box::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        .chat-box::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+
         .chat-message {
-            margin: 8px 0;
-            padding: 10px;
-            border-radius: 10px;
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
         }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .user {
-            background: #007bff;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
             color: white;
             align-self: flex-end;
-            text-align: right;
+            border-bottom-right-radius: 4px;
         }
+
         .bot {
-            background: #f1f0f0;
+            background: #1e293b;
+            color: #e2e8f0;
             align-self: flex-start;
-            color: #333;
+            border: 1px solid #334155;
+            border-bottom-left-radius: 4px;
         }
+
+        .bot b {
+            color: #22c55e;
+        }
+
         .chat-input {
             display: flex;
-            padding: 8px;
-            border-top: 1px solid #ccc;
+            padding: 16px;
+            gap: 12px;
+            background: #0f172a;
+            border-top: 1px solid #334155;
         }
+
         input {
             flex: 1;
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            background: #1e293b;
+            color: #f8fafc;
+            font-size: 14px;
+            font-family: inherit;
             outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
+
+        input::placeholder {
+            color: #64748b;
+        }
+
+        input:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+        }
+
         button {
-            background: #007bff;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
             color: white;
             border: none;
-            border-radius: 8px;
-            padding: 8px 16px;
-            margin-left: 8px;
+            border-radius: 10px;
+            padding: 12px 20px;
             cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            font-family: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+
         button:hover {
-            background: #0056b3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            border-bottom-left-radius: 4px;
+            align-self: flex-start;
+            max-width: 60px;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #64748b;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-indicator span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
         }
     </style>
 </head>
 <body>
     <div class="chat-container">
-        <div class="chat-header">AI Financial Assistant 💬</div>
+        <div class="chat-header">
+            <div class="header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 8V4H8"></path>
+                    <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+                    <path d="M2 14h2"></path>
+                    <path d="M20 14h2"></path>
+                    <path d="M15 13v2"></path>
+                    <path d="M9 13v2"></path>
+                </svg>
+            </div>
+            <div class="header-text">
+                <h1>ClutchCall <span class="badge">AI</span></h1>
+                <p>Financial Assistant</p>
+            </div>
+        </div>
         <div class="chat-box" id="chat-box">
             <div class="chat-message bot">
-                👋 Hello! I’m your AI Financial Assistant.<br>
-                Type <b>help</b> to see what I can do.
+                Hey there! I'm your AI Financial Assistant.<br><br>
+                Type <b>help</b> to see what I can do for you.
             </div>
         </div>
         <div class="chat-input">
-            <input id="user-input" type="text" placeholder="Type your message..." />
-            <button id="send-btn">Send</button>
+            <input id="user-input" type="text" placeholder="Ask me anything..." />
+            <button id="send-btn">
+                Send
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m22 2-7 20-4-9-9-4Z"></path>
+                    <path d="M22 2 11 13"></path>
+                </svg>
+            </button>
         </div>
     </div>
 
@@ -103,27 +286,50 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+        function showTyping() {
+            const div = document.createElement("div");
+            div.classList.add("typing-indicator");
+            div.id = "typing";
+            div.innerHTML = "<span></span><span></span><span></span>";
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById("typing");
+            if (typing) typing.remove();
+        }
+
         async function sendMessage() {
             const message = userInput.value.trim();
             if (!message) return;
 
             appendMessage("user", message);
             userInput.value = "";
+            showTyping();
 
-            const response = await fetch("/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message })
-            });
+            try {
+                const response = await fetch("/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message })
+                });
 
-            const data = await response.json();
-            appendMessage("bot", data.response);
+                const data = await response.json();
+                hideTyping();
+                appendMessage("bot", data.response);
+            } catch (error) {
+                hideTyping();
+                appendMessage("bot", "Sorry, something went wrong. Please try again.");
+            }
         }
 
         sendBtn.addEventListener("click", sendMessage);
         userInput.addEventListener("keypress", e => {
             if (e.key === "Enter") sendMessage();
         });
+
+        userInput.focus();
     </script>
 </body>
 </html>
