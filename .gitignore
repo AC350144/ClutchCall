@@ -1,4 +1,14 @@
+# dependencies
 node_modules/
+
+# build output
 dist/
+
+# Python cache
 __pycache__/
+
+# OS / editor junk
+.DS_Store
+
+# environment variables
 .env
