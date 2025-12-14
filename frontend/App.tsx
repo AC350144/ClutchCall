@@ -2,20 +2,13 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { useState } from 'react';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
+import { Register } from './components/Register';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  const handleSignIn = () => {
-    // TODO: Implement actual authentication
-    setIsAuthenticated(true);
-    navigate('/dashboard');
-  };
 
   const handleSignUp = () => {
-    // TODO: Navigate to sign up page
-    console.log('Navigate to sign up');
+    navigate("/register");
   };
 
   const handleForgotPassword = () => {
@@ -25,11 +18,21 @@ function LoginPage() {
 
   return (
     <Login
-      onSignIn={handleSignIn}
       onSignUp={handleSignUp}
       onForgotPassword={handleForgotPassword}
     />
   );
+}
+
+
+function RegisterPage() {
+  const navigate = useNavigate();
+
+  const handleSignIn = () => {
+    navigate("/login");
+  };
+
+  return <Register onSignIn={handleSignIn} />;
 }
 
 export default function App() {
@@ -39,6 +42,8 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/register" element={<RegisterPage />} />
+
       </Routes>
     </BrowserRouter>
   );

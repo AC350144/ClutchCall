@@ -1,7 +1,16 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response
 import re
+from db import create_tables
+import datetime
+import os
+import jwt
+import bcrypt
+import pymysql
 
 app = Flask(__name__)
+conn = create_tables()
+ALGORITHM = "HS256"
+SECRET_KEY = "TEST_SECRET" # CHANGE LATER!!!
 
 #defualt user info
 user_data = {
@@ -122,6 +131,19 @@ def handle_input(user_input):
             f"- Remaining budget: ${remaining:,.2f}<br><br>"
             "Need help? Type <b>help</b> to see what else I can do.")
 
+
+def create_temp_token(data: dict, expires_minutes=5):
+    payload = data.copy()
+
+    payload["mfa_pending"] = True
+
+    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_minutes)
+    payload["exp"] = expire
+
+    payload["type"] = "temporary"
+
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
 @app.route("/")
 def index():
     return render_template("chat.html")
@@ -131,6 +153,105 @@ def chat():
     user_message = request.json.get("message", "")
     reply = handle_input(user_message)
     return jsonify({"response": reply})
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    email = data.get("email")
+    password = data.get("pass")
+
+    if not email or not password:
+        return make_response("Missing email or password.", 400)
+
+    with conn.cursor() as c:
+        c.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = c.fetchone()
+
+    if not user:
+        return make_response("Invalid email or password.", 401)
+
+    if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+        return make_response("Invalid email or password.", 401)
+
+    if not user.get("mfa_secret"):
+        temp_token = create_temp_token({
+            "email": user["email"],
+            "mfa_pending": True
+        })
+
+        resp = make_response(
+            '{"status":"ok","mfa":false}',
+            200
+        )
+        resp.headers["Content-Type"] = "application/json"
+        resp.set_cookie(
+            "temp_token",
+            temp_token,
+            path="/",
+            httponly=True,
+            secure=False,   # change later
+            samesite="Lax"
+        )
+        return resp
+
+    # MFA set
+    temp_token = create_temp_token({
+        "email": user["email"],
+        "mfa_pending": True
+    })
+
+    resp = make_response(
+        '{"status":"ok","mfa":true}',
+        200
+    )
+    resp.headers["Content-Type"] = "application/json"
+    resp.set_cookie(
+        "temp_token",
+        temp_token,
+        path="/",
+        httponly=True,
+        secure=False,   # change later
+        samesite="Lax"
+    )
+
+    return resp
+
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    email = data.get("email")
+    password = data.get("pass")
+
+    if not email or not password:
+        return make_response("Missing email or password.", 400)
+
+    if len(password) < 8:
+        return make_response("Password must be at least 8 characters.", 400)
+
+    email = email.strip().lower()
+    password_hash = bcrypt.hashpw(
+        password.encode(),
+        bcrypt.gensalt()
+    ).decode()
+
+    try:
+        with conn.cursor() as c:
+            c.execute(
+                "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
+                (email, password_hash)
+            )
+        conn.commit()
+
+    except pymysql.err.IntegrityError:
+        return make_response("Email already exists.", 409)
+
+    except Exception as e:
+        print("DB ERROR:", e)
+        return make_response("Internal server error.", 500)
+
+    resp = make_response('{"status":"ok"}', 200)
+    resp.headers["Content-Type"] = "application/json"
+    return resp
 
 if __name__ == "__main__":
     app.run(host="localhost", port=3000, debug=True)
