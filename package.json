@@ -10,10 +10,14 @@
     "start": "vite"
   },
   "dependencies": {
+    "@radix-ui/react-label": "^2.1.8",
+    "class-variance-authority": "^0.7.1",
     "lucide-react": "^0.555.0",
+    "radix-ui": "^1.4.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.26.0"
+    "react-router-dom": "^6.26.0",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",
