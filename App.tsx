@@ -41,6 +41,15 @@ function Landing() {
   );
 }
 
+export interface BetLeg {
+  id: string;
+  sport: string;
+  game: string;
+  selection: string;
+  betType: string;
+  odds: number;
+  stake: number;
+}
 
 export default function App() {
   return (
