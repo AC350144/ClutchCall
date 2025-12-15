@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { LandingPage } from './components/LandingPage';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 
@@ -32,11 +33,23 @@ function LoginPage() {
   );
 }
 
+function Landing() {
+  const navigate = useNavigate();
+
+  return (
+    <LandingPage onLogin={() => navigate('/login')} />
+  );
+}
+
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Landing Page */}
+        <Route path="/" element={<Landing />} />
+
+        {/* Auth flow */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
