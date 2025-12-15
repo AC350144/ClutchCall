@@ -12,3 +12,11 @@ Frontend (Vite)
 npm install
 npm run dev
 ```
+
+To run tests:
+
+Frontend (Vitest)
+
+```bash
+npx vitest
+```
