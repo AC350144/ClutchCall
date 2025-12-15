@@ -1,5 +1,7 @@
 import type { BetLeg } from './Dashboard';
 
+export type TicketStatus = 'pending' | 'won' | 'lost';
+
 export type BetTicket = {
   id: string;
   createdAt: string; // ISO
@@ -8,9 +10,10 @@ export type BetTicket = {
   totalOddsAmerican: number;
   potentialWin: number;
   totalPayout: number;
+  status: TicketStatus;
 };
 
-const KEY = 'clutchcall_bet_history_v1';
+const KEY = 'clutchcall_bet_history_v2';
 
 export function loadBetHistory(): BetTicket[] {
   try {
@@ -36,4 +39,11 @@ export function addBetTicket(ticket: BetTicket) {
 
 export function clearBetHistory() {
   localStorage.removeItem(KEY);
+}
+
+export function updateBetTicketStatus(ticketId: string, status: TicketStatus) {
+  const history = loadBetHistory();
+  const next = history.map((t) => (t.id === ticketId ? { ...t, status } : t));
+  saveBetHistory(next);
+  return next;
 }

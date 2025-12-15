@@ -1,17 +1,30 @@
 import { Trash2 } from 'lucide-react';
-import type { BetTicket } from './betHistoryStorage';
+import type { BetTicket, TicketStatus } from './betHistoryStorage';
 
 function formatMoney(n: number) {
   if (!Number.isFinite(n)) return '$0.00';
   return `$${n.toFixed(2)}`;
 }
 
+function StatusPill({ status }: { status: TicketStatus }) {
+  const base = 'text-xs px-2 py-0.5 rounded-full border';
+  if (status === 'won') {
+    return <span className={`${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-300`}>Won</span>;
+  }
+  if (status === 'lost') {
+    return <span className={`${base} border-red-500/30 bg-red-500/10 text-red-300`}>Lost</span>;
+  }
+  return <span className={`${base} border-slate-500/30 bg-slate-500/10 text-slate-300`}>Pending</span>;
+}
+
 export function BetHistory({
   tickets,
   onClear,
+  onSetStatus,
 }: {
   tickets: BetTicket[];
   onClear: () => void;
+  onSetStatus: (ticketId: string, status: TicketStatus) => void;
 }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl">
@@ -45,14 +58,43 @@ export function BetHistory({
               className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-2"
             >
               <div className="flex justify-between items-start gap-4">
-                <div>
-                  <div className="text-slate-200 text-sm font-semibold">
-                    {new Date(t.createdAt).toLocaleString()}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="text-slate-200 text-sm font-semibold">
+                      {new Date(t.createdAt).toLocaleString()}
+                    </div>
+                    <StatusPill status={t.status} />
                   </div>
+
                   <div className="text-slate-400 text-xs">
                     {t.legs.length === 1 ? 'Single' : `${t.legs.length}-Leg Parlay`} • Odds{' '}
                     {t.totalOddsAmerican > 0 ? '+' : ''}
                     {t.totalOddsAmerican}
+                  </div>
+
+                  {/* Mocked status controls */}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      onClick={() => onSetStatus(t.id, 'pending')}
+                      className="text-xs px-2 py-1 rounded-md border border-slate-600 text-slate-200 hover:bg-slate-700"
+                      title="Mark as Pending"
+                    >
+                      Pending
+                    </button>
+                    <button
+                      onClick={() => onSetStatus(t.id, 'won')}
+                      className="text-xs px-2 py-1 rounded-md border border-emerald-600 text-emerald-200 hover:bg-emerald-900/20"
+                      title="Mark as Won"
+                    >
+                      Won
+                    </button>
+                    <button
+                      onClick={() => onSetStatus(t.id, 'lost')}
+                      className="text-xs px-2 py-1 rounded-md border border-red-600 text-red-200 hover:bg-red-900/20"
+                      title="Mark as Lost"
+                    >
+                      Lost
+                    </button>
                   </div>
                 </div>
 
