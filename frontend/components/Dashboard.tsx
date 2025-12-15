@@ -17,6 +17,7 @@ import {
   type TicketStatus,
 } from './betHistoryStorage';
 
+
 export interface BetLeg {
   id: string;
   sport: string;
@@ -90,8 +91,6 @@ function Toast({
 
 export function Dashboard() {
   const navigate = useNavigate();
-
-  // ✅ initialize bankroll from localStorage (prevents reset-on-refresh)
   const [bankroll, setBankroll] = useState(() => {
     try {
       const raw = localStorage.getItem(BANKROLL_KEY);
@@ -126,7 +125,7 @@ export function Dashboard() {
     }, ms);
   };
 
-  // ✅ Auth/session guard from main
+  // Auth/session guard (from main)
   useEffect(() => {
     async function checkSession() {
       try {
@@ -146,7 +145,8 @@ export function Dashboard() {
     checkSession();
   }, [navigate]);
 
-  // ✅ Load bet history on mount
+
+  // Load bet history + bankroll on mount
   useEffect(() => {
     setBetHistory(loadBetHistory());
 
@@ -155,7 +155,7 @@ export function Dashboard() {
     };
   }, []);
 
-  // ✅ Persist bankroll whenever it changes
+  // Persist bankroll whenever it changes
   useEffect(() => {
     try {
       localStorage.setItem(BANKROLL_KEY, String(bankroll));
@@ -232,13 +232,16 @@ export function Dashboard() {
     showToast('success', 'Bet placed successfully!');
   };
 
-  // ✅ Mock status + bankroll settlement logic
+  
   const setTicketStatus = (ticketId: string, status: TicketStatus) => {
     const ticket = betHistory.find((t) => t.id === ticketId);
     if (!ticket) return;
 
     const prevStatus = ticket.status;
 
+    // stake already deducted at placeBet()
+    // if becomes WON => credit totalPayout
+    // if leaves WON => remove that credit
     if (prevStatus !== 'won' && status === 'won') {
       setBankroll((b) => b + ticket.totalPayout);
       showToast('success', 'Marked as Won — payout credited to bankroll.');
