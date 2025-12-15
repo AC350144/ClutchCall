@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Header } from './Header';
 import { BankrollCard } from './BankrollCard';
 import { AIRecommendations } from './AIRecommendations';
@@ -25,9 +26,30 @@ export interface ParsedBet {
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
+
   const [bankroll, setBankroll] = useState(5000);
   const [betSlipLegs, setBetSlipLegs] = useState<BetLeg[]>([]);
   const [totalStake, setTotalStake] = useState(0);
+  
+  useEffect(() => {
+   async function checkSession() {
+      try {
+        const res = await fetch("/api/validate", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          navigate("/");
+        }
+      } catch {
+        navigate("/");
+      }
+    }
+
+    checkSession();
+  }, [navigate]);
 
   const addToBetSlip = (legs: BetLeg[]) => {
     setBetSlipLegs([...betSlipLegs, ...legs]);

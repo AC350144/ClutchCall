@@ -12,3 +12,6 @@ __pycache__/
 
 # environment variables
 .env
+
+# Python cache
+*.pyc
