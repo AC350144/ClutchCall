@@ -13,5 +13,8 @@ __pycache__/
 # environment variables
 .env
 
+# Python cache
+*.pyc
+
 # Python venv
 AI Financial Assistant/.venv/

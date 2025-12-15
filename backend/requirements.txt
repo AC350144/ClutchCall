@@ -1,0 +1,11 @@
+pandas
+scikit-learn
+joblib
+flask
+pymysql
+PyJWT
+bcrypt
+cryptography # needed for mysql encrypted databases 
+pyotp
+qrcode
+Pillow # for qr codes
