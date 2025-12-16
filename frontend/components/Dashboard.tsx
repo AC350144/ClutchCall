@@ -214,7 +214,7 @@ export function Dashboard() {
 
       <div className="max-w-[1800px] mx-auto px-6 py-6">
         <Tabs defaultValue="bets">
-          <TabsList className="mb-6 h-10 bg-slate-900/50 border">
+          <TabsList className="mb-6 h-10 bg-slate-900">
             <TabsTrigger value="bets" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
               Bets
