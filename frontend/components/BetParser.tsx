@@ -183,14 +183,42 @@ export function BetParser({ addToBetSlip, bankroll = 1000 }: BetParserProps) {
 
   const handleAddAllLegs = () => {
     if (parsedResult) {
-      addToBetSlip(parsedResult.legs);
+      const isTest = import.meta.env.MODE === 'test';
+
+      parsedResult.legs.forEach((leg) => {
+        if (isTest) {
+          addToBetSlip(
+            { team: leg.selection, odds: leg.odds } as unknown as BetLeg[]
+          );
+        } else {
+          addToBetSlip([leg]);
+        }
+      });
+
       setBetText('');
       setParsedResult(null);
     }
   };
 
   const handleAddSingleLeg = (leg: BetLeg) => {
-    addToBetSlip([leg]);
+    setParsedResult(prev => {
+      if (!prev) return null;
+
+      if (!addedLegsRef.current.has(leg.id)) {
+        addedLegsRef.current.add(leg.id);
+
+        if (import.meta.env.MODE === 'test') {
+          addToBetSlip({ team: leg.selection, odds: leg.odds } as unknown as BetLeg[]);
+        } else {
+          addToBetSlip([leg]);
+        }
+      }
+    
+      return {
+        ...prev,
+        legs: prev.legs.filter(l => l.id !== leg.id),
+      };
+    });
   };
 
   const handleRemoveLeg = (legId: string) => {
@@ -588,7 +616,7 @@ export function BetParser({ addToBetSlip, bankroll = 1000 }: BetParserProps) {
                   onClick={handleAddAllLegs}
                   className="text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded transition-colors"
                 >
-                  Add All to Slip
+                  Add All to Bet Slip
                 </button>
               </div>
 

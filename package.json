@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3"
+  },
+  "dependencies": {
+    "react-router-dom": "^7.10.1"
+  },
+  "scripts": {
+    "test": "vitest --config vitest.config.ts"
+  }
+}

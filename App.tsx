@@ -1,15 +1,22 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { LandingPage } from './components/LandingPage';
-import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
-import { Register } from './components/Register';
+import { LandingPage } from '../ClutchCall/frontend/components/LandingPage';
+import { Login } from '../ClutchCall/frontend/components/Login';
+import { Dashboard } from '../ClutchCall/frontend/components/Dashboard';
 
 function LoginPage() {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleSignIn = () => {
+    // TODO: Implement actual authentication
+    setIsAuthenticated(true);
+    navigate('/dashboard');
+  };
 
   const handleSignUp = () => {
-    navigate("/register");
+    // TODO: Navigate to sign up page
+    console.log('Navigate to sign up');
   };
 
   const handleForgotPassword = () => {
@@ -19,21 +26,11 @@ function LoginPage() {
 
   return (
     <Login
+      onSignIn={handleSignIn}
       onSignUp={handleSignUp}
       onForgotPassword={handleForgotPassword}
     />
   );
-}
-
-
-function RegisterPage() {
-  const navigate = useNavigate();
-
-  const handleSignIn = () => {
-    navigate("/login");
-  };
-
-  return <Register onSignIn={handleSignIn} />;
 }
 
 function Landing() {
@@ -56,7 +53,7 @@ export interface BetLeg {
 
 export default function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter>
       <Routes>
         {/* Landing Page */}
         <Route path="/" element={<Landing />} />
@@ -64,8 +61,6 @@ export default function App() {
         {/* Auth flow */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/register" element={<RegisterPage />} />
-
       </Routes>
     </BrowserRouter>
   );
