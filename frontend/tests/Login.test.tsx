@@ -7,7 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 describe('Login component', () => {
   test('renders login heading', () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login />
       </BrowserRouter>
     );
@@ -16,7 +16,7 @@ describe('Login component', () => {
 
   test('renders email and password inputs', () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login />
       </BrowserRouter>
     );
@@ -27,7 +27,7 @@ describe('Login component', () => {
   test('allows user to type email and password', async () => {
     const user = userEvent.setup();
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login />
       </BrowserRouter>
     );
@@ -45,7 +45,7 @@ describe('Login component', () => {
   test('form can be submitted with email and password', async () => {
     const user = userEvent.setup();
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login />
       </BrowserRouter>
     );
@@ -65,7 +65,7 @@ describe('Login component', () => {
   test('toggles password visibility when eye icon is clicked', async () => {
     const user = userEvent.setup();
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login />
       </BrowserRouter>
     );
@@ -86,7 +86,7 @@ describe('Login component', () => {
     const user = userEvent.setup();
     const onForgotPassword = vi.fn();
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login onForgotPassword={onForgotPassword} />
       </BrowserRouter>
     );
@@ -99,7 +99,7 @@ describe('Login component', () => {
     const user = userEvent.setup();
     const onSignUp = vi.fn();
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Login onSignUp={onSignUp} />
       </BrowserRouter>
     );
