@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, jsonify, make_response, send_file
+from betting.bet_parser import parse_bet_text
+from betting.bet_analyzer import analyze_bet
 import re
 from db import create_tables
 import datetime
@@ -191,9 +193,39 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    user_message = request.json.get("message", "")
-    reply = handle_input(user_message)
+    raw_text = request.json.get("message", "")
+
+    # Step 1: Parse bet text
+    parsed_bet = parse_bet_text(raw_text)
+
+    # Step 2: Analyze parsed bet
+    analysis = analyze_bet(parsed_bet)
+
+    # If betting input was detected, short-circuit chat response
+    if parsed_bet["legs"]:
+        return jsonify({
+            "response": f"Bet parsed successfully. Risk level: {analysis['risk']}."
+        })
+
+    # NOTE: Betting analysis is surfaced via the Bet Parser & Analyzer UI.
+    # Chat responses remain finance-focused for v1.
+
+    # Step 3: Build enhanced prompt BEFORE AI logic
+    enhanced_input = f"""
+        User Bet Summary:
+        - Bet Type: {analysis['summary']}
+        - Stake: {parsed_bet.get('stake')}
+        - Risk Level: {analysis['risk']}
+        - Warnings: {', '.join(analysis['warnings']) or 'None'}
+
+        Original Bet Text:
+        {raw_text}
+        """.strip()
+
+    # Step 4: Pass enhanced input into existing logic
+    reply = handle_input(enhanced_input)
     return jsonify({"response": reply})
+
 
 @app.route("/mfa/setup", methods=["GET"])
 def mfa_setup():
