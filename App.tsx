@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { LandingPage } from './components/LandingPage';
-import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
+import { LandingPage } from '../ClutchCall/components/LandingPage';
+import { Login } from '../ClutchCall/components/Login';
+import { Dashboard } from '../ClutchCall/components/Dashboard';
 
 function LoginPage() {
   const navigate = useNavigate();
