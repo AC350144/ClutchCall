@@ -30,14 +30,6 @@ export interface BetLeg {
   stake?: number;
 }
 
-export interface ParsedBet {
-  id: string;
-  legs: BetLeg[];
-  totalOdds: number;
-  qualityScore: number;
-  aiAnalysis: string;
-}
-
 const BANKROLL_KEY = 'clutchcall_bankroll_v1';
 
 type ToastState = {
@@ -57,17 +49,11 @@ function decimalToAmerican(decimal: number) {
   return Math.round(-100 / (decimal - 1));
 }
 
-function Toast({
-  toast,
-  onClose,
-}: {
-  toast: ToastState;
-  onClose: () => void;
-}) {
+function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
   if (!toast.open) return null;
 
   const base =
-    'fixed top-4 right-4 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border px-4 py-3 shadow-lg backdrop-blur';
+    'fixed top-4 right-4 z-50 w-[360px] rounded-xl border px-4 py-3 shadow-lg backdrop-blur';
   const styles =
     toast.kind === 'success'
       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
@@ -79,11 +65,7 @@ function Toast({
     <div className={`${base} ${styles}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="text-sm font-medium">{toast.message}</div>
-        <button
-          onClick={onClose}
-          className="text-xs opacity-80 hover:opacity-100"
-          title="Close"
-        >
+        <button onClick={onClose} className="text-xs opacity-80 hover:opacity-100">
           ✕
         </button>
       </div>
@@ -93,24 +75,25 @@ function Toast({
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [bankroll, setBankroll] = useState(() => {
     try {
       const raw = localStorage.getItem(BANKROLL_KEY);
-      if (raw !== null) {
-        const n = Number(raw);
-        if (Number.isFinite(n) && n >= 0) return n;
-      }
-    } catch {
-      // ignore
-    }
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) return n;
+    } catch {}
     return 5000;
   });
 
   const [betSlipLegs, setBetSlipLegs] = useState<BetLeg[]>([]);
   const [totalStake, setTotalStake] = useState(0);
-
   const [betHistory, setBetHistory] = useState<BetTicket[]>([]);
-  const [toast, setToast] = useState<ToastState>({ open: false, kind: 'info', message: '' });
+  const [toast, setToast] = useState<ToastState>({
+    open: false,
+    kind: 'info',
+    message: '',
+  });
 
   const toastTimerRef = useRef<number | null>(null);
 
@@ -123,7 +106,6 @@ export function Dashboard() {
     }, ms);
   };
 
-  // Auth/session guard
   const loadBankroll = useCallback(async () => {
     try {
       const res = await fetch('/api/bankroll', { credentials: 'include' });
@@ -135,25 +117,10 @@ export function Dashboard() {
     } catch {}
   }, []);
 
-  const updateBankroll = useCallback(async (amount: number) => {
-    const res = await fetch('/api/bankroll', {
-      method: 'PUT',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ current_balance: amount }),
-    });
-    if (!res.ok) throw new Error();
-    const data = await res.json();
-    setBankroll(data.current_balance ?? amount);
-  }, []);
-
   useEffect(() => {
-    async function checkSession() {
+    (async () => {
       try {
-        const res = await fetch('/api/validate', {
-          method: 'GET',
-          credentials: 'include',
-        });
+        const res = await fetch('/api/validate', { credentials: 'include' });
         if (!res.ok) {
           navigate('/');
           return;
@@ -162,69 +129,53 @@ export function Dashboard() {
       } catch {
         navigate('/');
       }
-    }
-    checkSession();
+    })();
   }, [navigate, loadBankroll]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const bet = params.get('bet') || '';
-    if (bet) setInitialBetText(bet);
-  }, [location.search]);
-
-  // Load bet history on mount
-  useEffect(() => {
     setBetHistory(loadBetHistory());
-
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     };
   }, []);
 
-  // Persist bankroll whenever it changes
   useEffect(() => {
     try {
       localStorage.setItem(BANKROLL_KEY, String(bankroll));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [bankroll]);
 
-  const addToBetSlip = (legs: BetLeg[]) => setBetSlipLegs((l) => [...l, ...legs]);
-  const removeLeg = (id: string) => setBetSlipLegs((l) => l.filter((leg) => leg.id !== id));
+  const addToBetSlip = (legs: BetLeg[]) =>
+    setBetSlipLegs((l) => [...l, ...legs]);
+
+  const removeLeg = (id: string) =>
+    setBetSlipLegs((l) => l.filter((leg) => leg.id !== id));
+
   const updateLeg = (id: string, updates: Partial<BetLeg>) =>
-    setBetSlipLegs((l) => l.map((leg) => (leg.id === id ? { ...leg, ...updates } : leg)));
+    setBetSlipLegs((l) =>
+      l.map((leg) => (leg.id === id ? { ...leg, ...updates } : leg))
+    );
+
   const clearBetSlip = () => {
     setBetSlipLegs([]);
     setTotalStake(0);
   };
 
   const placeBet = () => {
-    if (betSlipLegs.length === 0) {
-      showToast('error', 'Add at least one leg to place a bet.');
-      return;
-    }
-    if (!Number.isFinite(totalStake) || totalStake <= 0) {
-      showToast('error', 'Enter a valid stake amount.');
-      return;
-    }
-    if (totalStake > bankroll) {
-      showToast('error', 'Insufficient bankroll.');
+    if (!betSlipLegs.length || totalStake <= 0 || totalStake > bankroll) {
+      showToast('error', 'Invalid bet.');
       return;
     }
 
-    const decimals = betSlipLegs.map((leg) => americanToDecimal(leg.odds));
-    const totalDecimal = decimals.reduce((acc, d) => acc * d, 1);
+    const totalDecimal = betSlipLegs
+      .map((l) => americanToDecimal(l.odds))
+      .reduce((a, b) => a * b, 1);
+
     const totalOddsAmerican = decimalToAmerican(totalDecimal);
-
     const potentialWin =
       totalOddsAmerican > 0
         ? totalStake * (totalOddsAmerican / 100)
-        : totalOddsAmerican < 0
-          ? totalStake * (100 / Math.abs(totalOddsAmerican))
-          : 0;
-
-    const totalPayout = totalStake + potentialWin;
+        : totalStake * (100 / Math.abs(totalOddsAmerican));
 
     const ticket: BetTicket = {
       id: crypto.randomUUID(),
@@ -233,92 +184,65 @@ export function Dashboard() {
       stake: totalStake,
       totalOddsAmerican,
       potentialWin,
-      totalPayout,
+      totalPayout: totalStake + potentialWin,
       status: 'pending',
     };
 
-    const nextHistory = addBetTicket(ticket);
-    setBetHistory(nextHistory);
+    setBetHistory(addBetTicket(ticket));
     setBankroll((b) => b - totalStake);
     clearBetSlip();
-
     showToast('success', 'Bet placed successfully!');
   };
 
-  
   const setTicketStatus = (ticketId: string, status: TicketStatus) => {
     const ticket = betHistory.find((t) => t.id === ticketId);
     if (!ticket) return;
 
-    const prevStatus = ticket.status;
-
-    // stake already deducted at placeBet()
-    // if becomes WON => credit totalPayout
-    // if leaves WON => remove that credit
-    if (prevStatus !== 'won' && status === 'won') {
+    if (ticket.status !== 'won' && status === 'won') {
       setBankroll((b) => b + ticket.totalPayout);
-      showToast('success', 'Marked as Won — payout credited to bankroll.');
-    } else if (prevStatus === 'won' && status !== 'won') {
+    }
+    if (ticket.status === 'won' && status !== 'won') {
       setBankroll((b) => Math.max(0, b - ticket.totalPayout));
-      showToast('info', 'Removed Win settlement — bankroll adjusted.');
-    } else {
-      showToast('info', `Marked as ${status}.`);
     }
 
-    const next = updateBetTicketStatus(ticketId, status);
-    setBetHistory(next);
+    setBetHistory(updateBetTicketStatus(ticketId, status));
   };
 
   return (
     <div className="min-h-screen bg-slate-950">
       <Header />
-      
-      <div className="max-w-[1800px] mx-auto px-6 py-6">
-        <Tabs defaultValue="bets" className="w-full">
-          <TabsList className="bg-slate-900/50 border border-slate-200 mb-6 h-10">
-            <TabsTrigger 
-              value="bets" 
-              className="flex items-center gap-2 data-[state=active]:bg-slate-600 data-[state=active]:text-white text-slate-400"
-            >
-              <TrendingUp className="w-4 h-4 text-white " />
-              <div className="text-slate-300">
-              Bets
 
-              </div>
+      <div className="max-w-[1800px] mx-auto px-6 py-6">
+        <Tabs defaultValue="bets">
+          <TabsList className="mb-6 h-10 bg-slate-900/50 border">
+            <TabsTrigger value="bets" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Bets
             </TabsTrigger>
-            <TabsTrigger 
-              value="achievements" 
-              className="flex items-center gap-2 data-[state=active]:bg-slate-600 data-[state=active]:text-white text-slate-400"
-            >
-              <Trophy className="w-4 h-4 text-white" />
-                <div className="text-slate-300">
-                  Achievements
-                </div>
+            <TabsTrigger value="achievements" className="flex items-center gap-2">
+              <Trophy className="w-4 h-4" />
+              Achievements
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="bets" className="mt-0">
+          <TabsContent value="bets">
             <div className="flex gap-6">
-              {/* Main Content */}
               <div className="flex-1 space-y-6">
-                <BankrollCard 
-                  bankroll={bankroll} 
-                  setBankroll={setBankroll}
-                />
-                
-                <AIRecommendations 
-                  bankroll={bankroll}
-                  addToBetSlip={addToBetSlip}
-                />
-                
-                <BetParser 
-                  addToBetSlip={addToBetSlip}
+                <BankrollCard bankroll={bankroll} setBankroll={setBankroll} />
+                <AIRecommendations bankroll={bankroll} addToBetSlip={addToBetSlip} />
+                <BetParser addToBetSlip={addToBetSlip} />
+                <BetHistory
+                  tickets={betHistory}
+                  onClear={() => {
+                    clearBetHistory();
+                    setBetHistory([]);
+                  }}
+                  onSetStatus={setTicketStatus}
                 />
               </div>
 
-              {/* Bet Slip Sidebar */}
               <div className="w-[420px] shrink-0">
-                <BetSlip 
+                <BetSlip
                   legs={betSlipLegs}
                   removeLeg={removeLeg}
                   updateLeg={updateLeg}
@@ -332,44 +256,13 @@ export function Dashboard() {
             </div>
           </TabsContent>
 
-          <TabsContent value="achievements" className="mt-0">
+          <TabsContent value="achievements">
             <Achievements />
           </TabsContent>
         </Tabs>
-      <Toast toast={toast} onClose={() => setToast((t) => ({ ...t, open: false }))} />
-
-      <Toast toast={toast} onClose={() => setToast((t) => ({ ...t, open: false }))} />
-      <div className="flex gap-6 p-6 max-w-[1800px] mx-auto">
-        <div className="flex-1 space-y-6">
-          <BankrollCard bankroll={bankroll} setBankroll={setBankroll} />
-
-          <AIRecommendations bankroll={bankroll} addToBetSlip={addToBetSlip} />
-
-          <BetParser addToBetSlip={addToBetSlip} bankroll={bankroll} />
-
-          <BetHistory
-            tickets={betHistory}
-            onClear={() => {
-              clearBetHistory();
-              setBetHistory([]);
-              showToast('info', 'Bet history cleared.');
-            }}
-            onSetStatus={setTicketStatus}
-          />
-        </div>
-        <div className="w-[420px] shrink-0">
-          <BetSlip
-            legs={betSlipLegs}
-            removeLeg={removeLeg}
-            updateLeg={updateLeg}
-            clearBetSlip={clearBetSlip}
-            placeBet={placeBet}
-            bankroll={bankroll}
-            totalStake={totalStake}
-            setTotalStake={setTotalStake}
-          />
-        </div>
       </div>
+
+      <Toast toast={toast} onClose={() => setToast((t) => ({ ...t, open: false }))} />
       <ChatWidget refreshBankroll={loadBankroll} />
     </div>
   );
