@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { Clipboard, Sparkles, CheckCircle, XCircle, AlertTriangle, TrendingUp, Target, Percent, DollarSign, BarChart3, Info, Flame, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
-import { BetLeg } from '../App';
+
+export interface BetLeg {
+  id: string;
+  description: string;
+  odds: number;
+  type: string;
+  sport: string;
+  game?: string;
+  betType?: string;
+  selection?: string;
+}
 
 interface BetParserProps {
   addToBetSlip: (legs: BetLeg[]) => void;
@@ -91,10 +101,6 @@ export function BetParser({ addToBetSlip, bankroll = 1000 }: BetParserProps) {
   const [error, setError] = useState<string | null>(null);
   const [currentMatchupIndex, setCurrentMatchupIndex] = useState(0);
 
-  useEffect(() => {
-    setBetText(initialBetText);
-  }, [initialBetText]);
-
   const handleParse = async () => {
     if (!betText.trim()) return;
 
@@ -162,6 +168,8 @@ export function BetParser({ addToBetSlip, bankroll = 1000 }: BetParserProps) {
         betType: 'Spread',
         selection: betText.substring(0, 50),
         odds: -110,
+        description: betText.substring(0, 50),
+        type: 'Spread',
       },
     ];
 
