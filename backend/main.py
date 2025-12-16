@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, jsonify, make_response, send_file
+from betting.bet_parser import parse_bet_text
+from betting.bet_analyzer import analyze_bet
 import re
 import hashlib
 from db import create_tables, get_connection
