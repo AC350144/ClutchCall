@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, make_response, send_file
 import re
-from db import create_tables
+import hashlib
+from db import create_tables, get_connection
 import datetime
 import os
 import jwt
@@ -9,8 +10,30 @@ import pymysql
 import io
 import pyotp
 import qrcode
+from app.bet_parser import parse_bet_text, get_stake_recommendation
+from app.bank_account import (
+    BankAccount,
+    encrypt_data,
+    decrypt_data,
+    validate_routing_number,
+    validate_account_number,
+    mask_account_number,
+    mask_routing_number
+from app.logic import (
+    american_to_decimal,
+    extract_first_american_odds,
+    implied_probability,
+    parse_percent,
+    parse_stake,
+    payout_for_stake,
+    recommend_stake,
+)
 
 app = Flask(__name__)
+
+def get_db():
+    """Get a fresh database connection"""
+    return get_connection()
 conn = create_tables()
 ALGORITHM = "HS256"
 SECRET_KEY = "TEST_SECRET" # CHANGE LATER!!!
@@ -24,15 +47,72 @@ user_data = {
         "food": 300,
         "entertainment": 200,
         "bills": 1000
-    }
+    },
+    "bankroll": 5000.0,
+    "risk_mode": "conservative"
 }
 
 def calculate_remaining_budget():
     total_spent = sum(user_data["categories"].values()) + user_data["savings"]
     return user_data["income"] - total_spent
 
-def handle_input(user_input):
+def ensure_connection():
+    """Ensure the global DB connection is alive, recreating it if needed."""
+    global conn
+    try:
+        conn.ping(reconnect=True)
+    except Exception:
+        conn = get_connection(create_db_if_missing=False)
+
+
+def authenticate_user(include_user=False):
+    token = request.cookies.get("token")
+
+    if not token:
+        return False, make_response("No token provided.", 401), None
+
+    payload = decode_token(token)
+
+    if not payload or payload.get("type") != "access" or not payload.get("email"):
+        resp = make_response("Unauthorized.", 401)
+        resp.delete_cookie(
+            "token",
+            path="/",
+            httponly=True,
+            secure=False,
+            samesite="Lax",
+        )
+        return False, resp, None
+
+    if not include_user:
+        return True, None, payload
+
+    ensure_connection()
+    with conn.cursor() as c:
+        c.execute("SELECT id, email FROM users WHERE email = %s", (payload.get("email"),))
+        user = c.fetchone()
+
+    if not user:
+        return False, make_response("Unauthorized.", 401), None
+
+    return True, user, payload
+
+def handle_input(user_input, bankroll_record=None, user_id=None):
     text = user_input.lower().strip()
+
+    def get_bankroll_balance():
+        if bankroll_record and bankroll_record.get("current_balance") is not None:
+            return float(bankroll_record.get("current_balance", 0))
+        return float(user_data.get("bankroll", 0))
+
+    def set_bankroll_balance(amount: float):
+        nonlocal bankroll_record
+
+        if not user_id:
+            raise PermissionError("Please log in to update your bankroll.")
+
+        bankroll_record = update_bankroll_balance(user_id, amount, bankroll_record)
+        return bankroll_record
 
     #Greet user
     if text in ["hi", "hello", "hey"]:
@@ -44,12 +124,117 @@ def handle_input(user_input):
 
     if "help" in text:
         return ("Here's what you can say:<br>"
+                "<b>Budget / Finance:</b><br>"
                 "- 'Show my budget'<br>"
                 "- 'Add 200 to food'<br>"
                 "- 'Update entertainment to 400'<br>"
                 "- 'Set income to 5000'<br>"
                 "- 'Update savings to 300'<br>"
-                "- 'Reset data'")
+                "- 'Reset data'<br><br>"
+                "<b>Bankroll / Betting Math:</b><br>"
+                "- 'Set bankroll to 5000'<br>"
+                "- 'What is 2% of bankroll?'<br>"
+                "- 'Recommend conservative stake'<br>"
+                "- 'Recommend aggressive stake'<br>"
+                "- 'Set risk mode to conservative'<br>"
+                "- 'Set risk mode to aggressive'<br>"
+                "- 'Implied probability for -110'<br>"
+                "- 'Payout for stake 100 at -110'<br>"
+                "- 'Parlay odds for -110, +145, -105'")
+
+    # set bankroll to 5000
+    if "bankroll" in text and any(word in text for word in ["set", "update", "change", "make"]):
+        m = re.search(r"(?:set|update|change|make)\s+bankroll\s+(?:to\s+)?(\d+(?:\.\d+)?)", text)
+        if not m:
+            return "Try: <b>Set bankroll to 5000</b>"
+
+        updated_record = set_bankroll_balance(float(m.group(1)))
+        return f"Bankroll updated to <b>${updated_record.get('current_balance', 0):,.2f}</b>."
+
+    # set risk mode
+    if "risk mode" in text or ("set" in text and "aggressive" in text) or ("set" in text and "conservative" in text):
+        if "aggressive" in text:
+            user_data["risk_mode"] = "aggressive"
+            return "Risk mode set to <b>aggressive</b> (2–5% stake guidance)."
+        if "conservative" in text:
+            user_data["risk_mode"] = "conservative"
+            return "Risk mode set to <b>conservative</b> (1–2% stake guidance)."
+        return "Try: <b>Set risk mode to conservative</b> or <b>Set risk mode to aggressive</b>."
+
+    # recommend stake
+    if "recommend" in text and "stake" in text:
+        rec = recommend_stake(float(get_bankroll_balance()), user_data.get("risk_mode", "conservative"))
+        if not rec:
+            return "Bankroll must be set to a positive number first. Try: <b>Set bankroll to 5000</b>"
+        return (f"Recommended stake range (<b>{rec['mode']}</b>):<br>"
+                f"- {rec['low_pct']}%: <b>${rec['low']:,.2f}</b><br>"
+                f"- {rec['high_pct']}%: <b>${rec['high']:,.2f}</b>")
+
+    # percent of bankroll
+    if "bankroll" in text and parse_percent(text) is not None:
+        pct = parse_percent(text)
+        bankroll = float(get_bankroll_balance())
+        amt = bankroll * (pct / 100.0)
+        return f"{pct}% of bankroll (<b>${bankroll:,.2f}</b>) is <b>${amt:,.2f}</b>."
+
+    # implied probability for -110
+    if "implied" in text and "prob" in text:
+        odds = extract_first_american_odds(text)
+        if odds is None:
+            return "Try: <b>Implied probability for -110</b>"
+        try:
+            p = implied_probability(odds) * 100.0
+            return f"Implied probability for <b>{odds}</b> is <b>{p:.2f}%</b>."
+        except ValueError as e:
+            return str(e)
+
+    # payout for stake 100 at -110
+    if "payout" in text or "profit" in text:
+        stake = parse_stake(text)
+        odds = extract_first_american_odds(text)
+        if stake is None or odds is None:
+            return "Try: <b>Payout for stake 100 at -110</b>"
+        if stake <= 0:
+            return "Stake must be greater than 0."
+        try:
+            res = payout_for_stake(stake, odds)
+            return (f"For stake <b>${stake:,.2f}</b> at <b>{odds}</b>:<br>"
+                    f"- Decimal odds: <b>{res['decimal_odds']}</b><br>"
+                    f"- Profit: <b>${res['profit']:,.2f}</b><br>"
+                    f"- Total payout: <b>${res['total_payout']:,.2f}</b>")
+        except ValueError as e:
+            return str(e)
+
+    # parlay odds for -110, +145, -105
+    if "parlay" in text and ("odds" in text or "for" in text):
+        odds_list = re.findall(r"(?<!\d)([+-]?\d{2,4})(?!\d)", text)
+        if not odds_list or len(odds_list) < 2:
+            return "Try: <b>Parlay odds for -110, +145, -105</b>"
+        try:
+            decimals = [american_to_decimal(int(o)) for o in odds_list]
+            parlay_decimal = 1.0
+            for d in decimals:
+                parlay_decimal *= d
+
+            # Convert decimal -> American approximation
+            if parlay_decimal >= 2.0:
+                parlay_american = int(round((parlay_decimal - 1.0) * 100))
+                american_str = f"+{parlay_american}"
+            else:
+                parlay_american = int(round(-100 / (parlay_decimal - 1.0)))
+                american_str = f"{parlay_american}"
+
+            return (f"Parlay decimal odds: <b>{parlay_decimal:.4f}</b><br>"
+                    f"Approx. parlay American odds: <b>{american_str}</b>")
+        except Exception:
+            return "Could not parse parlay odds. Make sure you include valid odds like -110, +145."
+
+    if "odds" in text or "probability" in text:
+        return "Try: <b>Implied probability for -110</b> or <b>Payout for stake 100 at -110</b>."
+    if "bankroll" in text or "stake" in text:
+        return "Try: <b>Set bankroll to 5000</b> then <b>Recommend conservative stake</b>."
+    if "bet" in text or "parlay" in text:
+        return "Try: <b>Parlay odds for -110, +145, -105</b>."
 
     # reset data 
     if "reset" in text:
@@ -57,7 +242,9 @@ def handle_input(user_input):
             "income": 3000,
             "expenses": 1500,
             "savings": 200,
-            "categories": {"food": 300, "entertainment": 200, "bills": 1000}
+            "categories": {"food": 300, "entertainment": 200, "bills": 1000},
+            "bankroll": 5000.0,
+            "risk_mode": "conservative"
         })
         return "All data reset to default values."
 
@@ -185,15 +372,170 @@ def create_access_token(data: dict, expires_minutes: int = 60):
     payload["type"] = "access"
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
+
+def get_current_user():
+    """
+    Get the current authenticated user from the access token.
+    Returns user dict on success, or None on failure.
+    """
+    token = request.cookies.get("token")
+    
+    if not token:
+        return None
+    
+    payload = decode_token(token)
+    
+    if not payload or payload.get("type") != "access":
+        return None
+    
+    email = payload.get("email")
+    if not email:
+        return None
+    
+    db_conn = get_db()
+    cursor = db_conn.cursor(pymysql.cursors.DictCursor)
+    try:
+        cursor.execute("SELECT id, email, is_active FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+    finally:
+        cursor.close()
+        db_conn.close()
+    
+    if not user or not user.get("is_active", True):
+        return None
+    
+    return user
+
+def get_or_create_bankroll(user_id: int, default_amount: float = 5000.0):
+    ensure_connection()
+    with conn.cursor() as c:
+        c.execute(
+            "SELECT id, current_balance, initial_bankroll, peak_balance, lowest_balance FROM bankrolls WHERE user_id = %s",
+            (user_id,),
+        )
+        bankroll = c.fetchone()
+
+        if bankroll:
+            return bankroll
+
+        c.execute(
+            """
+            INSERT INTO bankrolls (user_id, current_balance, initial_bankroll, peak_balance, lowest_balance)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (user_id, default_amount, default_amount, default_amount, default_amount),
+        )
+        conn.commit()
+
+    with conn.cursor() as c:
+        c.execute(
+            "SELECT id, current_balance, initial_bankroll, peak_balance, lowest_balance FROM bankrolls WHERE user_id = %s",
+            (user_id,),
+        )
+        return c.fetchone()
+
+
+def update_bankroll_balance(user_id: int, new_balance: float, bankroll_record: dict = None):
+    ensure_connection()
+    bankroll_record = bankroll_record or get_or_create_bankroll(user_id)
+
+    try:
+        new_balance = float(new_balance)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid bankroll amount.")
+
+    if new_balance < 0:
+        raise ValueError("Bankroll cannot be negative.")
+
+    peak_balance = bankroll_record.get("peak_balance") or new_balance
+    lowest_balance = bankroll_record.get("lowest_balance") or new_balance
+
+    peak_balance = max(float(peak_balance), new_balance)
+    lowest_balance = min(float(lowest_balance), new_balance)
+
+    with conn.cursor() as c:
+        c.execute(
+            """
+            UPDATE bankrolls
+            SET current_balance = %s,
+                peak_balance = %s,
+                lowest_balance = %s
+            WHERE user_id = %s
+            """,
+            (new_balance, peak_balance, lowest_balance, user_id),
+        )
+    conn.commit()
+
+    bankroll_record.update(
+        {
+            "current_balance": float(new_balance),
+            "peak_balance": float(peak_balance),
+            "lowest_balance": float(lowest_balance),
+        }
+    )
+
+    return bankroll_record
+
+
+def serialize_bankroll(record: dict):
+    if not record:
+        return {}
+
+    return {
+        "id": record.get("id"),
+        "current_balance": float(record.get("current_balance", 0)),
+        "initial_bankroll": float(record.get("initial_bankroll", 0)),
+        "peak_balance": float(record.get("peak_balance", 0)),
+        "lowest_balance": float(record.get("lowest_balance", 0)),
+    }
+
 @app.route("/")
 def index():
     return render_template("chat.html")
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    authenticated, user, _ = authenticate_user(include_user=True)
+    bankroll_record = None
+
+    if authenticated:
+        bankroll_record = get_or_create_bankroll(user.get("id"))
+
     user_message = request.json.get("message", "")
-    reply = handle_input(user_message)
+    try:
+        reply = handle_input(
+            user_message,
+            bankroll_record=bankroll_record,
+            user_id=user.get("id") if authenticated else None,
+        )
+    except PermissionError as exc:
+        return make_response(jsonify({"response": str(exc)}), 401)
+
     return jsonify({"response": reply})
+
+@app.route("/bankroll", methods=["GET", "PUT"])
+@app.route("/api/bankroll", methods=["GET", "PUT"])
+def bankroll():
+    authenticated, user, _ = authenticate_user(include_user=True)
+    if not authenticated:
+        return user
+
+    bankroll_record = get_or_create_bankroll(user.get("id"))
+
+    if request.method == "GET":
+        return jsonify(serialize_bankroll(bankroll_record))
+
+    data = request.get_json() or {}
+    new_balance = data.get("current_balance")
+
+    try:
+        updated_record = update_bankroll_balance(user.get("id"), new_balance, bankroll_record)
+    except ValueError as exc:
+        return make_response(str(exc), 400)
+
+    return jsonify(serialize_bankroll(updated_record))
+
+
 
 @app.route("/mfa/setup", methods=["GET"])
 def mfa_setup():
@@ -208,6 +550,7 @@ def mfa_setup():
         return make_response("Invalid token payload.", 401)
 
     try:
+        ensure_connection()
         with conn.cursor() as c:
             c.execute(
                 "SELECT mfa_secret FROM users WHERE email = %s",
@@ -263,6 +606,7 @@ def mfa_validate():
     if not email:
         return make_response("Invalid token payload.", 401)
 
+    ensure_connection()
     with conn.cursor() as c:
         c.execute(
             "SELECT email, mfa_secret FROM users WHERE email = %s",
@@ -331,6 +675,7 @@ def login():
     if not email or not password:
         return make_response("Missing email or password.", 400)
 
+    ensure_connection()
     with conn.cursor() as c:
         c.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = c.fetchone()
@@ -338,7 +683,27 @@ def login():
     if not user:
         return make_response("Invalid email or password.", 401)
 
-    if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+    # Check password - support both password and password_hash columns
+    stored_hash = user.get("password_hash") or user.get("password")
+    if not stored_hash:
+        return make_response("Invalid email or password.", 401)
+    
+    if not bcrypt.checkpw(password.encode(), stored_hash.encode()):
+        return make_response("Invalid email or password.", 401)
+    
+    # Update username and display_name if missing (for existing users)
+    if not user.get("username") or not user.get("display_name"):
+        username = email.split('@')[0]
+        display_name = username.capitalize()
+        try:
+            with conn.cursor() as c:
+                c.execute(
+                    "UPDATE users SET username = %s, display_name = %s WHERE id = %s",
+                    (username, display_name, user["id"])
+                )
+            conn.commit()
+        except Exception as e:
+            print(f"Error updating username: {e}")
         return make_response("Invalid email or password.", 401)
 
     if not user.get("mfa_secret"):
@@ -396,16 +761,21 @@ def register():
         return make_response("Password must be at least 8 characters.", 400)
 
     email = email.strip().lower()
+    # Derive username from email (part before @)
+    username = email.split('@')[0]
+    display_name = username.capitalize()
+    
     password_hash = bcrypt.hashpw(
         password.encode(),
         bcrypt.gensalt()
     ).decode()
 
     try:
+        ensure_connection()
         with conn.cursor() as c:
             c.execute(
-                "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
-                (email, password_hash)
+                "INSERT INTO users (email, password_hash, username, display_name, password) VALUES (%s, %s, %s, %s, %s)",
+                (email, password_hash, username, display_name, password_hash)
             )
         conn.commit()
 
@@ -433,6 +803,529 @@ def logout():
     )
     resp.delete_cookie("temp_token", path="/")
     return resp
+
+
+@app.route("/parse-bet", methods=["POST"])
+def parse_bet():
+    """
+    Parse and analyze a bet slip text.
+    
+    Request body:
+    {
+        "betText": "Lakers -3.5 @ -110, Warriors ML @ +150",
+        "bankroll": 5000  (optional)
+    }
+    
+    Returns parsed legs with AI analysis and recommendations.
+    """
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    bet_text = data.get("betText", "")
+    bankroll = data.get("bankroll", 1000)
+    
+    if not bet_text:
+        return jsonify({"error": "No bet text provided"}), 400
+    
+    try:
+        result = parse_bet_text(bet_text)
+        
+        if result.get("success"):
+            # Add stake recommendations if bankroll provided
+            stake_rec = get_stake_recommendation(
+                bankroll,
+                result.get("qualityScore", 50),
+                result.get("recommendation", "caution")
+            )
+            result["stakeRecommendation"] = stake_rec
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        print(f"Error parsing bet: {e}")
+        return jsonify({
+            "success": False,
+            "error": "Failed to parse bet text",
+            "legs": [],
+            "qualityScore": 0,
+            "analysis": "An error occurred while parsing.",
+            "recommendation": "avoid"
+        }), 500
+
+
+@app.route("/analyze-odds", methods=["POST"])
+def analyze_odds():
+    """
+    Analyze odds and calculate probabilities/payouts.
+    
+    Request body:
+    {
+        "odds": [-110, +150, -200],
+        "stake": 100
+    }
+    """
+    from app.bet_parser import calculate_implied_probability, calculate_parlay_odds, calculate_payout
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    odds_list = data.get("odds", [])
+    stake = data.get("stake", 100)
+    
+    if not odds_list:
+        return jsonify({"error": "No odds provided"}), 400
+    
+    try:
+        analysis = []
+        for odds in odds_list:
+            prob = calculate_implied_probability(odds)
+            payout = calculate_payout(stake, odds)
+            analysis.append({
+                "odds": odds,
+                "impliedProbability": round(prob * 100, 2),
+                "potentialPayout": round(payout, 2),
+                "totalReturn": round(stake + payout, 2)
+            })
+        
+        parlay_odds = calculate_parlay_odds(odds_list) if len(odds_list) > 1 else odds_list[0]
+        parlay_payout = calculate_payout(stake, parlay_odds)
+        
+        # Calculate combined probability
+        combined_prob = 1
+        for odds in odds_list:
+            combined_prob *= calculate_implied_probability(odds)
+        
+        return jsonify({
+            "individualLegs": analysis,
+            "parlay": {
+                "combinedOdds": parlay_odds,
+                "combinedProbability": round(combined_prob * 100, 2),
+                "potentialPayout": round(parlay_payout, 2),
+                "totalReturn": round(stake + parlay_payout, 2)
+            },
+            "stake": stake
+        })
+    
+    except Exception as e:
+        print(f"Error analyzing odds: {e}")
+        return jsonify({"error": "Failed to analyze odds"}), 500
+
+
+# ===== Profile Endpoints =====
+
+@app.route("/profile", methods=["GET"])
+def get_profile():
+    """Get the current user's profile information"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        cursor.execute("""
+            SELECT id, username, email, display_name, avatar, phone, 
+                   betting_experience, favorite_sports, monthly_budget, created_at
+            FROM users WHERE id = %s
+        """, (user["id"],))
+        
+        profile = cursor.fetchone()
+        
+        if not profile:
+            return jsonify({"error": "Profile not found"}), 404
+        
+        # Parse favorite_sports if stored as JSON string
+        favorite_sports = profile.get("favorite_sports") or "[]"
+        if isinstance(favorite_sports, str):
+            try:
+                import json
+                favorite_sports = json.loads(favorite_sports)
+            except:
+                favorite_sports = []
+        
+        return jsonify({
+            "id": profile["id"],
+            "username": profile["username"],
+            "email": profile.get("email", ""),
+            "displayName": profile.get("display_name") or profile["username"],
+            "avatar": profile.get("avatar") or "🎰",
+            "phone": profile.get("phone") or "",
+            "bettingExperience": profile.get("betting_experience") or "beginner",
+            "favoriteSports": favorite_sports,
+            "monthlyBudget": profile.get("monthly_budget") or 500,
+            "createdAt": profile["created_at"].isoformat() if profile.get("created_at") else None
+        })
+    
+    except Exception as e:
+        print(f"Error fetching profile: {e}")
+        return jsonify({"error": "Failed to fetch profile"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route("/profile", methods=["PUT"])
+def update_profile():
+    """Update the current user's profile information"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        import json
+        
+        # Build update query dynamically based on provided fields
+        updates = []
+        values = []
+        
+        if "displayName" in data:
+            updates.append("display_name = %s")
+            values.append(data["displayName"])
+        
+        if "avatar" in data:
+            updates.append("avatar = %s")
+            values.append(data["avatar"])
+        
+        if "phone" in data:
+            updates.append("phone = %s")
+            values.append(data["phone"])
+        
+        if "bettingExperience" in data:
+            updates.append("betting_experience = %s")
+            values.append(data["bettingExperience"])
+        
+        if "favoriteSports" in data:
+            updates.append("favorite_sports = %s")
+            values.append(json.dumps(data["favoriteSports"]))
+        
+        if "monthlyBudget" in data:
+            updates.append("monthly_budget = %s")
+            values.append(data["monthlyBudget"])
+        
+        if not updates:
+            return jsonify({"message": "No fields to update"}), 200
+        
+        values.append(user["id"])
+        
+        cursor.execute(f"""
+            UPDATE users SET {', '.join(updates)} WHERE id = %s
+        """, tuple(values))
+        
+        conn.commit()
+        
+        return jsonify({"message": "Profile updated successfully"})
+    
+    except Exception as e:
+        conn.rollback()
+        print(f"Error updating profile: {e}")
+        return jsonify({"error": "Failed to update profile"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    """Change the current user's password"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    
+    current_password = data.get("currentPassword")
+    new_password = data.get("newPassword")
+    
+    if not current_password or not new_password:
+        return jsonify({"error": "Current and new password are required"}), 400
+    
+    if len(new_password) < 8:
+        return jsonify({"error": "New password must be at least 8 characters"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        # Get current password hash
+        cursor.execute("SELECT password FROM users WHERE id = %s", (user["id"],))
+        result = cursor.fetchone()
+        
+        if not result:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Verify current password
+        stored_hash = result["password"]
+        if isinstance(stored_hash, str):
+            stored_hash = stored_hash.encode('utf-8')
+        
+        if not bcrypt.checkpw(current_password.encode('utf-8'), stored_hash):
+            return jsonify({"error": "Current password is incorrect"}), 400
+        
+        # Hash new password
+        new_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        
+        # Update password
+        cursor.execute("UPDATE users SET password = %s WHERE id = %s", (new_hash, user["id"]))
+        conn.commit()
+        
+        return jsonify({"message": "Password changed successfully"})
+    
+    except Exception as e:
+        conn.rollback()
+        print(f"Error changing password: {e}")
+        return jsonify({"error": "Failed to change password"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ===== Bank Account Endpoints =====
+
+@app.route("/bank-accounts", methods=["GET"])
+def get_bank_accounts():
+    """Get all bank accounts for the current user (masked)"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        cursor.execute("""
+            SELECT id, bank_name, account_type, last_four, is_primary, created_at 
+            FROM bank_accounts 
+            WHERE user_id = %s AND is_active = TRUE
+            ORDER BY is_primary DESC, created_at DESC
+        """, (user["id"],))
+        
+        accounts = cursor.fetchall()
+        
+        return jsonify({
+            "accounts": [{
+                "id": acc["id"],
+                "bankName": acc["bank_name"],
+                "accountType": acc["account_type"],
+                "lastFour": acc["last_four"],
+                "isPrimary": bool(acc["is_primary"]),
+                "createdAt": acc["created_at"].isoformat() if acc["created_at"] else None
+            } for acc in accounts]
+        })
+    
+    except Exception as e:
+        print(f"Error fetching bank accounts: {e}")
+        return jsonify({"error": "Failed to fetch bank accounts"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route("/bank-accounts", methods=["POST"])
+def add_bank_account():
+    """Add a new bank account with encrypted data"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ["bankName", "routingNumber", "accountNumber", "accountType"]
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+    
+    routing_number = data["routingNumber"]
+    account_number = data["accountNumber"]
+    bank_name = data["bankName"]
+    account_type = data.get("accountType", "checking")
+    is_primary = data.get("isPrimary", False)
+    
+    # Validate routing number
+    if not validate_routing_number(routing_number):
+        return jsonify({"error": "Invalid routing number"}), 400
+    
+    # Validate account number
+    if not validate_account_number(account_number):
+        return jsonify({"error": "Invalid account number. Must be 4-17 digits."}), 400
+    
+    # Validate account type
+    if account_type not in ["checking", "savings"]:
+        return jsonify({"error": "Account type must be 'checking' or 'savings'"}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        # Check account limit (max 5 accounts per user)
+        cursor.execute(
+            "SELECT COUNT(*) as count FROM bank_accounts WHERE user_id = %s AND is_active = TRUE",
+            (user["id"],)
+        )
+        result = cursor.fetchone()
+        if result and result["count"] >= 5:
+            return jsonify({"error": "Maximum of 5 bank accounts allowed"}), 400
+        
+        # Check for duplicate account
+        account_hash = hashlib.sha256(account_number.encode()).hexdigest()
+        routing_hash = hashlib.sha256(routing_number.encode()).hexdigest()
+        
+        cursor.execute("""
+            SELECT id FROM bank_accounts 
+            WHERE user_id = %s AND routing_number_hash = %s AND account_number_hash = %s AND is_active = TRUE
+        """, (user["id"], routing_hash, account_hash))
+        
+        if cursor.fetchone():
+            return jsonify({"error": "This bank account is already linked"}), 400
+        
+        # Encrypt sensitive data
+        encrypted_routing = encrypt_data(routing_number)
+        encrypted_account = encrypt_data(account_number)
+        last_four = mask_account_number(account_number)
+        
+        # If this is primary, unset other primary accounts
+        if is_primary:
+            cursor.execute(
+                "UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = %s",
+                (user["id"],)
+            )
+        
+        # Insert new bank account
+        cursor.execute("""
+            INSERT INTO bank_accounts 
+            (user_id, bank_name, account_type, encrypted_routing_number, encrypted_account_number, 
+             routing_number_hash, account_number_hash, last_four, is_primary, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+        """, (user["id"], bank_name, account_type, encrypted_routing, encrypted_account,
+              routing_hash, account_hash, last_four, is_primary))
+        
+        conn.commit()
+        account_id = cursor.lastrowid
+        
+        return jsonify({
+            "message": "Bank account added successfully",
+            "account": {
+                "id": account_id,
+                "bankName": bank_name,
+                "accountType": account_type,
+                "lastFour": last_four,
+                "isPrimary": is_primary
+            }
+        }), 201
+    
+    except Exception as e:
+        conn.rollback()
+        print(f"Error adding bank account: {e}")
+        return jsonify({"error": "Failed to add bank account"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route("/bank-accounts/<int:account_id>", methods=["DELETE"])
+def delete_bank_account(account_id):
+    """Soft delete a bank account"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        # Verify account belongs to user
+        cursor.execute(
+            "SELECT id, is_primary FROM bank_accounts WHERE id = %s AND user_id = %s AND is_active = TRUE",
+            (account_id, user["id"])
+        )
+        account = cursor.fetchone()
+        
+        if not account:
+            return jsonify({"error": "Bank account not found"}), 404
+        
+        # Soft delete
+        cursor.execute(
+            "UPDATE bank_accounts SET is_active = FALSE WHERE id = %s",
+            (account_id,)
+        )
+        
+        # If this was primary, set another account as primary
+        if account["is_primary"]:
+            cursor.execute("""
+                UPDATE bank_accounts 
+                SET is_primary = TRUE 
+                WHERE user_id = %s AND is_active = TRUE 
+                ORDER BY created_at DESC 
+                LIMIT 1
+            """, (user["id"],))
+        
+        conn.commit()
+        
+        return jsonify({"message": "Bank account removed successfully"})
+    
+    except Exception as e:
+        conn.rollback()
+        print(f"Error deleting bank account: {e}")
+        return jsonify({"error": "Failed to remove bank account"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route("/bank-accounts/<int:account_id>/primary", methods=["PUT"])
+def set_primary_bank_account(account_id):
+    """Set a bank account as primary"""
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        # Verify account belongs to user
+        cursor.execute(
+            "SELECT id FROM bank_accounts WHERE id = %s AND user_id = %s AND is_active = TRUE",
+            (account_id, user["id"])
+        )
+        
+        if not cursor.fetchone():
+            return jsonify({"error": "Bank account not found"}), 404
+        
+        # Unset all primary
+        cursor.execute(
+            "UPDATE bank_accounts SET is_primary = FALSE WHERE user_id = %s",
+            (user["id"],)
+        )
+        
+        # Set new primary
+        cursor.execute(
+            "UPDATE bank_accounts SET is_primary = TRUE WHERE id = %s",
+            (account_id,)
+        )
+        
+        conn.commit()
+        
+        return jsonify({"message": "Primary account updated successfully"})
+    
+    except Exception as e:
+        conn.rollback()
+        print(f"Error setting primary account: {e}")
+        return jsonify({"error": "Failed to update primary account"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 
 if __name__ == "__main__":
     app.run(host="localhost", port=3000, debug=True)

@@ -1,138 +1,151 @@
-import { Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { History, Trash2, ChevronDown, ChevronUp, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
 import type { BetTicket, TicketStatus } from './betHistoryStorage';
 
-function formatMoney(n: number) {
-  if (!Number.isFinite(n)) return '$0.00';
-  return `$${n.toFixed(2)}`;
-}
-
-function StatusPill({ status }: { status: TicketStatus }) {
-  const base = 'text-xs px-2 py-0.5 rounded-full border';
-  if (status === 'won') {
-    return <span className={`${base} border-emerald-500/30 bg-emerald-500/10 text-emerald-300`}>Won</span>;
-  }
-  if (status === 'lost') {
-    return <span className={`${base} border-red-500/30 bg-red-500/10 text-red-300`}>Lost</span>;
-  }
-  return <span className={`${base} border-slate-500/30 bg-slate-500/10 text-slate-300`}>Pending</span>;
-}
-
-export function BetHistory({
-  tickets,
-  onClear,
-  onSetStatus,
-}: {
+interface BetHistoryProps {
   tickets: BetTicket[];
   onClear: () => void;
   onSetStatus: (ticketId: string, status: TicketStatus) => void;
-}) {
-  return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl">
-      <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-        <div>
-          <h2 className="text-slate-200 font-semibold">Bet History</h2>
-          <p className="text-slate-400 text-sm">
-            {tickets.length} {tickets.length === 1 ? 'ticket' : 'tickets'}
-          </p>
-        </div>
+}
 
-        {tickets.length > 0 && (
+const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
+  pending: { label: 'Pending', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30', icon: Clock },
+  won: { label: 'Won', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', icon: CheckCircle },
+  lost: { label: 'Lost', color: 'text-red-400 bg-red-500/10 border-red-500/30', icon: XCircle },
+  push: { label: 'Push', color: 'text-slate-400 bg-slate-500/10 border-slate-500/30', icon: Ban },
+  cancelled: { label: 'Cancelled', color: 'text-slate-500 bg-slate-600/10 border-slate-600/30', icon: Ban },
+};
+
+export function BetHistory({ tickets, onClear, onSetStatus }: BetHistoryProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
+
+  if (tickets.length === 0) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-purple-500/10 p-3 rounded-lg">
+            <History className="w-6 h-6 text-purple-500" />
+          </div>
+          <div>
+            <h2 className="text-slate-200">Bet History</h2>
+            <p className="text-slate-400 text-sm">Your placed bets will appear here</p>
+          </div>
+        </div>
+        <div className="text-center py-8 text-slate-500">
+          No bets placed yet. Add legs to your slip and place a bet!
+        </div>
+      </div>
+    );
+  }
+
+  const totalWon = tickets.filter(t => t.status === 'won').reduce((sum, t) => sum + t.potentialWin, 0);
+  const totalLost = tickets.filter(t => t.status === 'lost').reduce((sum, t) => sum + t.stake, 0);
+  const netProfit = totalWon - totalLost;
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-purple-500/10 p-3 rounded-lg">
+            <History className="w-6 h-6 text-purple-500" />
+          </div>
+          <div>
+            <h2 className="text-slate-200">Bet History</h2>
+            <p className="text-slate-400 text-sm">
+              {tickets.length} bet{tickets.length !== 1 ? 's' : ''} • 
+              <span className={netProfit >= 0 ? ' text-emerald-400' : ' text-red-400'}>
+                {' '}{netProfit >= 0 ? '+' : ''}${netProfit.toFixed(2)} net
+              </span>
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
           <button
             onClick={onClear}
-            className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
-            title="Clear bet history"
+            className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+            title="Clear history"
           >
             <Trash2 className="w-4 h-4" />
-            Clear
           </button>
-        )}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
+          >
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
-      {tickets.length === 0 ? (
-        <div className="p-6 text-slate-400 text-sm">No bets placed yet.</div>
-      ) : (
-        <div className="p-4 space-y-3 max-h-[520px] overflow-y-auto">
-          {tickets.map((t) => (
-            <div
-              key={t.id}
-              className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-2"
-            >
-              <div className="flex justify-between items-start gap-4">
-                <div className="space-y-1">
+      {isExpanded && (
+        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          {tickets.map((ticket) => {
+            const config = STATUS_CONFIG[ticket.status];
+            const StatusIcon = config.icon;
+            const isTicketExpanded = expandedTicket === ticket.id;
+
+            return (
+              <div
+                key={ticket.id}
+                className={`border rounded-lg p-3 ${config.color.split(' ').slice(1).join(' ')}`}
+              >
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="text-slate-200 text-sm font-semibold">
-                      {new Date(t.createdAt).toLocaleString()}
+                    <StatusIcon className={`w-4 h-4 ${config.color.split(' ')[0]}`} />
+                    <span className="text-slate-200 text-sm font-medium">
+                      {ticket.legs.length} leg{ticket.legs.length !== 1 ? 's' : ''} • ${ticket.stake.toFixed(2)}
+                    </span>
+                    <span className="text-slate-400 text-xs">
+                      {ticket.totalOddsAmerican > 0 ? '+' : ''}{ticket.totalOddsAmerican}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${ticket.status === 'won' ? 'text-emerald-400' : 'text-slate-300'}`}>
+                      {ticket.status === 'won' ? '+' : ''}${ticket.potentialWin.toFixed(2)}
+                    </span>
+                    <button
+                      onClick={() => setExpandedTicket(isTicketExpanded ? null : ticket.id)}
+                      className="p-1 text-slate-400 hover:text-slate-200 rounded transition-colors"
+                    >
+                      {isTicketExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
+
+                {isTicketExpanded && (
+                  <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2">
+                    {ticket.legs.map((leg, idx) => (
+                      <div key={leg.id} className="text-xs text-slate-400">
+                        <span className="text-slate-500">{idx + 1}.</span>{' '}
+                        <span className="text-slate-300">{leg.selection}</span>{' '}
+                        <span className="text-slate-500">({leg.odds > 0 ? '+' : ''}{leg.odds})</span>
+                      </div>
+                    ))}
+                    
+                    <div className="flex gap-1 mt-3 pt-2 border-t border-slate-700/50">
+                      {(['won', 'lost', 'push', 'cancelled'] as TicketStatus[]).map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => onSetStatus(ticket.id, status)}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            ticket.status === status
+                              ? STATUS_CONFIG[status].color
+                              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {STATUS_CONFIG[status].label}
+                        </button>
+                      ))}
                     </div>
-                    <StatusPill status={t.status} />
+                    
+                    <div className="text-xs text-slate-500 mt-2">
+                      Placed: {new Date(ticket.createdAt).toLocaleString()}
+                    </div>
                   </div>
-
-                  <div className="text-slate-400 text-xs">
-                    {t.legs.length === 1 ? 'Single' : `${t.legs.length}-Leg Parlay`} • Odds{' '}
-                    {t.totalOddsAmerican > 0 ? '+' : ''}
-                    {t.totalOddsAmerican}
-                  </div>
-
-                  {/* Mocked status controls */}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      onClick={() => onSetStatus(t.id, 'pending')}
-                      className="text-xs px-2 py-1 rounded-md border border-slate-600 text-slate-200 hover:bg-slate-700"
-                      title="Mark as Pending"
-                    >
-                      Pending
-                    </button>
-                    <button
-                      onClick={() => onSetStatus(t.id, 'won')}
-                      className="text-xs px-2 py-1 rounded-md border border-emerald-600 text-emerald-200 hover:bg-emerald-900/20"
-                      title="Mark as Won"
-                    >
-                      Won
-                    </button>
-                    <button
-                      onClick={() => onSetStatus(t.id, 'lost')}
-                      className="text-xs px-2 py-1 rounded-md border border-red-600 text-red-200 hover:bg-red-900/20"
-                      title="Mark as Lost"
-                    >
-                      Lost
-                    </button>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-slate-300 text-xs">Stake</div>
-                  <div className="text-white">{formatMoney(t.stake)}</div>
-                </div>
+                )}
               </div>
-
-              <div className="space-y-1">
-                {t.legs.map((leg) => (
-                  <div
-                    key={leg.id}
-                    className="flex justify-between text-xs text-slate-300 gap-3"
-                  >
-                    <span className="truncate">
-                      {leg.game} — {leg.selection} ({leg.betType})
-                    </span>
-                    <span className="text-emerald-400 shrink-0">
-                      {leg.odds > 0 ? '+' : ''}
-                      {leg.odds}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-2 border-t border-slate-700 flex justify-between text-sm gap-4">
-                <div>
-                  <div className="text-slate-400 text-xs">Potential win</div>
-                  <div className="text-emerald-400">{formatMoney(t.potentialWin)}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-slate-400 text-xs">Total payout</div>
-                  <div className="text-white">{formatMoney(t.totalPayout)}</div>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
