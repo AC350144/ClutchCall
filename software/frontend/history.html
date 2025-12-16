@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ClutchCall</title>
+    <link rel="stylesheet" href="style_history.css">
+    <style>
+        .entry-section-title h2:nth-child(2) {
+            display: none; /* hide the "Last Modified" header */
+        }
+
+        .analyze-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: url('./Logo.JPG') no-repeat center center;
+            background-size: cover;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .analyze-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .entry-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <p>ClutchCall</p>
+        </div>
+    </div>
+
+    <div class="main">
+
+
+        <div class="entries" id="entries-container"></div>
+
+        <button class="clear-history-btn">Clear All History</button>
+    </div>
+
+    <script>
+        let lastRenderedIds = new Set();
+        let pollTimer = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAndRenderHistory();
+            pollTimer = setInterval(checkForUpdates, 1000);
+
+            document
+                .querySelector('.clear-history-btn')
+                .addEventListener('click', clearHistory);
+        });
+
+        function formatDate(iso) {
+            if (!iso) return 'Unknown';
+            return new Date(iso).toLocaleString();
+        }
+
+        async function checkBackend() {
+            try {
+                const res = await window.electronAPI.backend.health();
+                return res.status === 'ok';
+            } catch {
+                return false;
+            }
+        }
+
+        async function checkForUpdates() {
+            try {
+                const { history } = await window.electronAPI.backend.getHistory(20);
+                if (!history) return;
+
+                const ids = new Set(history.map(e => e.id));
+
+                if (
+                    ids.size !== lastRenderedIds.size ||
+                    [...ids].some(id => !lastRenderedIds.has(id))
+                ) {
+                    renderHistory(history);
+                }
+            } catch {}
+        }
+
+        async function loadAndRenderHistory() {
+            const healthy = await checkBackend();
+            const container = document.getElementById('entries-container');
+            container.innerHTML = '';
+
+            if (!healthy) {
+                container.innerHTML =
+                    `<p style="text-align:center;color:#c00;margin:20px;">
+                        Backend unavailable.
+                    </p>`;
+                return;
+            }
+
+            try {
+                const { history } = await window.electronAPI.backend.getHistory(20);
+                renderHistory(history || []);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderHistory(history) {
+            const container = document.getElementById('entries-container');
+            container.innerHTML = '';
+            lastRenderedIds.clear();
+
+            if (history.length === 0) {
+                container.innerHTML =
+                    `<p style="text-align:center;color:#666;margin:20px;">
+                        No clipboard history found.
+                    </p>`;
+                return;
+            }
+
+            history.forEach(entry => {
+                lastRenderedIds.add(entry.id);
+
+                const row = document.createElement('div');
+                row.className = 'entry-row';
+
+                // Clipboard content button
+                const btn = document.createElement('button');
+                btn.className = 'entry-btn';
+                btn.dataset.open = 'false';
+                btn.textContent = 'Click to reveal';
+
+                btn.addEventListener('click', () => {
+                    if (btn.dataset.open === 'false') {
+                        btn.textContent = entry.content || '[Empty]';
+                        btn.dataset.open = 'true';
+                    } else {
+                        btn.textContent = 'Click to reveal';
+                        btn.dataset.open = 'false';
+                    }
+                });
+
+                // Analyze button
+                const analyzeBtn = document.createElement('button');
+                analyzeBtn.className = 'analyze-btn';
+                analyzeBtn.title = 'Analyze as Bet Slip';
+                analyzeBtn.addEventListener('click', () => {
+                    const betText = encodeURIComponent(entry.content || '');
+                    window.electronAPI.openExternal(`http://localhost:5173/dashboard?bet=${betText}`);
+                });
+
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                const icon = document.createElement('img');
+                icon.src = './bin.png';
+                icon.alt = 'Delete';
+                deleteBtn.appendChild(icon);
+
+                deleteBtn.addEventListener('click', async () => {
+                    if (!confirm('Delete this entry?')) return;
+                    try {
+                        await window.electronAPI.backend.deleteHistoryEntry(entry.id);
+                        row.remove();
+                        lastRenderedIds.delete(entry.id);
+                    } catch (e) {
+                        alert('Failed to delete entry.');
+                    }
+                });
+
+                row.appendChild(btn);
+                row.appendChild(analyzeBtn);
+                row.appendChild(deleteBtn);
+                container.appendChild(row);
+            });
+        }
+
+        async function clearHistory() {
+            if (!confirm('Clear all clipboard history?')) return;
+            try {
+                await window.electronAPI.backend.clearHistory();
+                renderHistory([]);
+            } catch (e) {
+                alert('Failed to clear history.');
+            }
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (pollTimer) clearInterval(pollTimer);
+        });
+    </script>
+
+</body>
+</html>
