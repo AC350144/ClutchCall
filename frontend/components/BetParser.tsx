@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clipboard, Sparkles, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { BetLeg } from '../App';
 
 interface BetParserProps {
   addToBetSlip: (legs: BetLeg[]) => void;
+  initialBetText?: string;
 }
 
 interface ParsedBetResult {
@@ -13,10 +14,14 @@ interface ParsedBetResult {
   recommendation: 'good' | 'caution' | 'avoid';
 }
 
-export function BetParser({ addToBetSlip }: BetParserProps) {
-  const [betText, setBetText] = useState('');
+export function BetParser({ addToBetSlip, initialBetText = '' }: BetParserProps) {
+  const [betText, setBetText] = useState(initialBetText);
   const [parsedResult, setParsedResult] = useState<ParsedBetResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setBetText(initialBetText);
+  }, [initialBetText]);
 
   const handleParse = async () => {
     if (!betText.trim()) return;

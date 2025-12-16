@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { BankrollCard } from './BankrollCard';
 import { AIRecommendations } from './AIRecommendations';
@@ -27,96 +27,53 @@ export interface ParsedBet {
 
 export function Dashboard() {
   const navigate = useNavigate();
-
+  const location = useLocation();
   const [bankroll, setBankroll] = useState(5000);
   const [betSlipLegs, setBetSlipLegs] = useState<BetLeg[]>([]);
   const [totalStake, setTotalStake] = useState(0);
-  
-  useEffect(() => {
-   async function checkSession() {
-      try {
-        const res = await fetch("/api/validate", {
-          method: "GET",
-          credentials: "include",
-        });
+  const [initialBetText, setInitialBetText] = useState(''); // new state
 
-        if (!res.ok) {
-          navigate("/");
-        }
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        const res = await fetch("/api/validate", { method: "GET", credentials: "include" });
+        if (!res.ok) navigate("/");
       } catch {
         navigate("/");
       }
     }
 
     checkSession();
-  }, [navigate]);
 
-  const addToBetSlip = (legs: BetLeg[]) => {
-    setBetSlipLegs([...betSlipLegs, ...legs]);
-  };
+    const params = new URLSearchParams(location.search);
+    const bet = params.get('bet') || '';
+    if (bet) setInitialBetText(bet);
+  }, [location.search, navigate]);
 
-  const removeLeg = (id: string) => {
-    setBetSlipLegs(betSlipLegs.filter(leg => leg.id !== id));
-  };
-
-  const updateLeg = (id: string, updates: Partial<BetLeg>) => {
-    setBetSlipLegs(betSlipLegs.map(leg => 
-      leg.id === id ? { ...leg, ...updates } : leg
-    ));
-  };
-
-  const clearBetSlip = () => {
-    setBetSlipLegs([]);
-    setTotalStake(0);
-  };
-
-  const placeBet = () => {
-    if (totalStake <= bankroll) {
-      setBankroll(bankroll - totalStake);
-      clearBetSlip();
-      alert('Bet placed successfully!');
-    } else {
-      alert('Insufficient bankroll!');
-    }
-  };
+  const addToBetSlip = (legs: BetLeg[]) => setBetSlipLegs([...betSlipLegs, ...legs]);
+  const removeLeg = (id: string) => setBetSlipLegs(betSlipLegs.filter(leg => leg.id !== id));
+  const updateLeg = (id: string, updates: Partial<BetLeg>) => setBetSlipLegs(betSlipLegs.map(leg => leg.id === id ? { ...leg, ...updates } : leg));
+  const clearBetSlip = () => { setBetSlipLegs([]); setTotalStake(0); };
+  const placeBet = () => { if (totalStake <= bankroll) { setBankroll(bankroll - totalStake); clearBetSlip(); alert('Bet placed successfully!'); } else { alert('Insufficient bankroll!'); } };
 
   return (
     <div className="min-h-screen bg-slate-950">
       <Header />
-      
+
       <div className="flex gap-6 p-6 max-w-[1800px] mx-auto">
         {/* Main Content */}
         <div className="flex-1 space-y-6">
-          <BankrollCard 
-            bankroll={bankroll} 
-            setBankroll={setBankroll}
-          />
-          
-          <AIRecommendations 
-            bankroll={bankroll}
-            addToBetSlip={addToBetSlip}
-          />
-          
-          <BetParser 
-            addToBetSlip={addToBetSlip}
-          />
+          <BankrollCard bankroll={bankroll} setBankroll={setBankroll} />
+          <AIRecommendations bankroll={bankroll} addToBetSlip={addToBetSlip} />
+          <BetParser addToBetSlip={addToBetSlip} initialBetText={initialBetText} />
         </div>
 
         {/* Bet Slip Sidebar */}
         <div className="w-[420px] shrink-0">
-          <BetSlip 
-            legs={betSlipLegs}
-            removeLeg={removeLeg}
-            updateLeg={updateLeg}
-            clearBetSlip={clearBetSlip}
-            placeBet={placeBet}
-            bankroll={bankroll}
-            totalStake={totalStake}
-            setTotalStake={setTotalStake}
-          />
+          <BetSlip legs={betSlipLegs} removeLeg={removeLeg} updateLeg={updateLeg} clearBetSlip={clearBetSlip} placeBet={placeBet} bankroll={bankroll} totalStake={totalStake} setTotalStake={setTotalStake} />
         </div>
       </div>
-      
+
       <ChatWidget />
     </div>
   );
