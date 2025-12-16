@@ -22,7 +22,7 @@ export function Header() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2 rounded-lg">
-              <Brain className="w-6 h-6 text-white" />
+              <Brain className="w-6 h-6 text-white" data-testid="brain-icon" />
             </div>
             <div>
               <h1 className="text-white flex items-center gap-2">
@@ -35,12 +35,12 @@ export function Header() {
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 text-slate-300">
-              <Zap className="w-4 h-4 text-yellow-500" />
+              <Zap className="w-4 h-4 text-yellow-500" data-testid="zap-icon" />
               <span className="text-sm">Fast Bet Builder</span>
             </div>
 
             <div className="flex items-center gap-2 text-slate-300">
-              <TrendingUp className="w-4 h-4 text-emerald-500" />
+              <TrendingUp className="w-4 h-4 text-emerald-500" data-testid="trending-up-icon" />
               <span className="text-sm">Smart Analysis</span>
             </div>
 
