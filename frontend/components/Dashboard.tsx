@@ -6,6 +6,9 @@ import { AIRecommendations } from './AIRecommendations';
 import { BetParser } from './BetParser';
 import { BetSlip } from './BetSlip';
 import { ChatWidget } from './ChatWidget';
+import { Achievements } from './Achievements';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { TrendingUp, Trophy } from 'lucide-react';
 
 export interface BetLeg {
   id: string;
@@ -84,37 +87,64 @@ export function Dashboard() {
     <div className="min-h-screen bg-slate-950">
       <Header />
       
-      <div className="flex gap-6 p-6 max-w-[1800px] mx-auto">
-        {/* Main Content */}
-        <div className="flex-1 space-y-6">
-          <BankrollCard 
-            bankroll={bankroll} 
-            setBankroll={setBankroll}
-          />
-          
-          <AIRecommendations 
-            bankroll={bankroll}
-            addToBetSlip={addToBetSlip}
-          />
-          
-          <BetParser 
-            addToBetSlip={addToBetSlip}
-          />
-        </div>
+      <div className="max-w-[1800px] mx-auto px-6 py-6">
+        <Tabs defaultValue="bets" className="w-full">
+          <TabsList className="bg-slate-900/50 border border-slate-800 mb-6 h-10">
+            <TabsTrigger 
+              value="bets" 
+              className="flex items-center gap-2 data-[state=active]:bg-slate-800 data-[state=active]:text-white text-slate-400"
+            >
+              <TrendingUp className="w-4 h-4" />
+              Bets
+            </TabsTrigger>
+            <TabsTrigger 
+              value="achievements" 
+              className="flex items-center gap-2 data-[state=active]:bg-slate-800 data-[state=active]:text-white text-slate-400"
+            >
+              <Trophy className="w-4 h-4" />
+              Achievements
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Bet Slip Sidebar */}
-        <div className="w-[420px] shrink-0">
-          <BetSlip 
-            legs={betSlipLegs}
-            removeLeg={removeLeg}
-            updateLeg={updateLeg}
-            clearBetSlip={clearBetSlip}
-            placeBet={placeBet}
-            bankroll={bankroll}
-            totalStake={totalStake}
-            setTotalStake={setTotalStake}
-          />
-        </div>
+          <TabsContent value="bets" className="mt-0">
+            <div className="flex gap-6">
+              {/* Main Content */}
+              <div className="flex-1 space-y-6">
+                <BankrollCard 
+                  bankroll={bankroll} 
+                  setBankroll={setBankroll}
+                />
+                
+                <AIRecommendations 
+                  bankroll={bankroll}
+                  addToBetSlip={addToBetSlip}
+                />
+                
+                <BetParser 
+                  addToBetSlip={addToBetSlip}
+                />
+              </div>
+
+              {/* Bet Slip Sidebar */}
+              <div className="w-[420px] shrink-0">
+                <BetSlip 
+                  legs={betSlipLegs}
+                  removeLeg={removeLeg}
+                  updateLeg={updateLeg}
+                  clearBetSlip={clearBetSlip}
+                  placeBet={placeBet}
+                  bankroll={bankroll}
+                  totalStake={totalStake}
+                  setTotalStake={setTotalStake}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="achievements" className="mt-0">
+            <Achievements />
+          </TabsContent>
+        </Tabs>
       </div>
       
       <ChatWidget />
