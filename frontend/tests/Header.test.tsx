@@ -29,31 +29,14 @@ describe('Header component', () => {
     expect(subtitle).toBeInTheDocument();
   });
 
-  it('renders Fast Bet Builder section', () => {
+  it('renders settings button', () => {
     render(
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Header />
       </BrowserRouter>
     );
     
-    const fastBetBuilder = screen.getByText(/Fast Bet Builder/i);
-    expect(fastBetBuilder).toBeInTheDocument();
-
-    const zapIcon = screen.getByTestId('zap-icon');
-    expect(zapIcon).toBeInTheDocument();
-  });
-
-  it('renders Smart Analysis section', () => {
-    render(
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Header />
-      </BrowserRouter>
-    );
-    
-    const smartAnalysis = screen.getByText(/Smart Analysis/i);
-    expect(smartAnalysis).toBeInTheDocument();
-    
-    const trendingUpIcon = screen.getByTestId('trending-up-icon');
-    expect(trendingUpIcon).toBeInTheDocument();
+    const settingsButton = screen.getByRole('button', { name: /Settings/i });
+    expect(settingsButton).toBeInTheDocument();
   });
 });

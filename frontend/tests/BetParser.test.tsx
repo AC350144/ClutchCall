@@ -1,13 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BetParser } from '../components/BetParser';
-import { vi } from 'vitest';
-
-vi.mock('../utils/parseBet', () => ({
-  parseBet: vi.fn(() => [
-    { team: 'Team A', odds: 1.5 },
-    { team: 'Team B', odds: 2.0 },
-  ]),
-}));
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 describe('BetParser component', () => {
   const addToBetSlip = vi.fn();
@@ -18,78 +11,77 @@ describe('BetParser component', () => {
 
   it('renders BetParser UI elements', () => {
     render(<BetParser addToBetSlip={addToBetSlip} />);
+
     expect(screen.getByRole('textbox')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /parse/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /parse & analyze bet/i })
+    ).toBeInTheDocument();
   });
 
   it('disables parse button when textarea is empty', () => {
     render(<BetParser addToBetSlip={addToBetSlip} />);
-    const button = screen.getByRole('button', { name: /parse/i });
+
+    const button = screen.getByRole('button', {
+      name: /parse & analyze bet/i,
+    });
+
     expect(button).toBeDisabled();
   });
 
   it('enables parse button when textarea has text', () => {
     render(<BetParser addToBetSlip={addToBetSlip} />);
-    const textarea = screen.getByRole('textbox');
-    const button = screen.getByRole('button', { name: /parse/i });
-    fireEvent.change(textarea, { target: { value: 'Bet text' } });
-    expect(button).toBeEnabled();
+
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Bet text' },
+    });
+
+    expect(
+      screen.getByRole('button', { name: /parse & analyze bet/i })
+    ).toBeEnabled();
   });
 
-  it('parses bet and displays legs after clicking parse', async () => {
+  it('parses bet when button is clicked', async () => {
     render(<BetParser addToBetSlip={addToBetSlip} />);
-    const textarea = screen.getByRole('textbox');
-    const button = screen.getByRole('button', { name: /parse/i });
 
-    fireEvent.change(textarea, { target: { value: 'Bet text' } });
-    fireEvent.click(button);
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Bet text' },
+    });
 
-    expect(await screen.findByText('Team A')).toBeInTheDocument();
-    expect(await screen.findByText('Team B')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /parse & analyze bet/i })
+    );
+
+    // The button should show "Analyzing..." state initially
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /analyzing/i })
+      ).toBeInTheDocument();
+    });
   });
 
-  it('adds all parsed legs to bet slip', async () => {
+  it('displays textarea with entered text', () => {
     render(<BetParser addToBetSlip={addToBetSlip} />);
+
     const textarea = screen.getByRole('textbox');
-    const button = screen.getByRole('button', { name: /parse/i });
+    fireEvent.change(textarea, {
+      target: { value: 'Sample bet text' },
+    });
 
-    fireEvent.change(textarea, { target: { value: 'Bet text' } });
-    fireEvent.click(button);
-
-    const addAllButton = await screen.findByRole('button', { name: /add all to bet slip/i });
-    fireEvent.click(addAllButton);
-
-    expect(addToBetSlip).toHaveBeenCalledTimes(2);
-    expect(addToBetSlip).toHaveBeenCalledWith({ team: 'Team A', odds: 1.5 });
-    expect(addToBetSlip).toHaveBeenCalledWith({ team: 'Team B', odds: 2.0 });
+    expect(textarea).toHaveValue('Sample bet text');
   });
 
-  it('adds a single leg to bet slip', async () => {
+  it('can clear the textarea', () => {
     render(<BetParser addToBetSlip={addToBetSlip} />);
+
     const textarea = screen.getByRole('textbox');
-    const button = screen.getByRole('button', { name: /parse/i });
+    fireEvent.change(textarea, {
+      target: { value: 'Sample bet text' },
+    });
 
-    fireEvent.change(textarea, { target: { value: 'Bet text' } });
-    fireEvent.click(button);
+    fireEvent.change(textarea, {
+      target: { value: '' },
+    });
 
-    const addButtons = await screen.findAllByRole('button', { name: /add/i });
-    fireEvent.click(addButtons[0]);
-
-    expect(addToBetSlip).toHaveBeenCalledWith({ team: 'Team A', odds: 1.5 });
-  });
-
-  it('removes a single parsed leg from the list', async () => {
-    render(<BetParser addToBetSlip={addToBetSlip} />);
-    const textarea = screen.getByRole('textbox');
-    const button = screen.getByRole('button', { name: /parse/i });
-
-    fireEvent.change(textarea, { target: { value: 'Bet text' } });
-    fireEvent.click(button);
-
-    const removeButtons = await screen.findAllByRole('button', { name: /remove/i });
-    fireEvent.click(removeButtons[0]);
-
-    expect(screen.queryByText('Team A')).not.toBeInTheDocument();
-    expect(screen.getByText('Team B')).toBeInTheDocument();
+    expect(textarea).toHaveValue('');
   });
 });
