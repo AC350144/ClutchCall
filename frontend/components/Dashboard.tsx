@@ -6,6 +6,16 @@ import { AIRecommendations } from './AIRecommendations';
 import { BetParser } from './BetParser';
 import { BetSlip } from './BetSlip';
 import { ChatWidget } from './ChatWidget';
+import { BetHistory } from './BetHistory';
+
+import {
+  addBetTicket,
+  clearBetHistory,
+  loadBetHistory,
+  updateBetTicketStatus,
+  type BetTicket,
+  type TicketStatus,
+} from './betHistoryStorage';
 
 import { BetHistory } from './BetHistory';
 import {
@@ -141,9 +151,7 @@ export function Dashboard() {
         navigate('/');
       }
     }
-
     checkSession();
-  }, [navigate]);
 
 
   // Load bet history on mount
@@ -178,6 +186,10 @@ export function Dashboard() {
     );
   };
 
+  const addToBetSlip = (legs: BetLeg[]) => setBetSlipLegs([...betSlipLegs, ...legs]);
+  const removeLeg = (id: string) => setBetSlipLegs(betSlipLegs.filter((leg) => leg.id !== id));
+  const updateLeg = (id: string, updates: Partial<BetLeg>) =>
+    setBetSlipLegs(betSlipLegs.map((leg) => (leg.id === id ? { ...leg, ...updates } : leg)));
   const clearBetSlip = () => {
     setBetSlipLegs([]);
     setTotalStake(0);
@@ -263,7 +275,6 @@ export function Dashboard() {
       <Toast toast={toast} onClose={() => setToast((t) => ({ ...t, open: false }))} />
 
       <div className="flex gap-6 p-6 max-w-[1800px] mx-auto">
-        {/* Main Content */}
         <div className="flex-1 space-y-6">
           <BankrollCard bankroll={bankroll} setBankroll={setBankroll} />
 
@@ -282,7 +293,6 @@ export function Dashboard() {
           />
         </div>
 
-        {/* Bet Slip Sidebar */}
         <div className="w-[420px] shrink-0">
           <BetSlip
             legs={betSlipLegs}
@@ -301,4 +311,3 @@ export function Dashboard() {
     </div>
   );
 }
-
