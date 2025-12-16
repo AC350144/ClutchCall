@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from './Header';
 import { BankrollCard } from './BankrollCard';
@@ -32,8 +32,25 @@ export function Dashboard() {
   const [betSlipLegs, setBetSlipLegs] = useState<BetLeg[]>([]);
   const [totalStake, setTotalStake] = useState(0);
   
+  const loadBankroll = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bankroll", { credentials: "include" });
+
+      if (!res.ok) {
+        throw new Error("Unable to load bankroll");
+      }
+
+      const data = await res.json();
+      if (typeof data.current_balance === "number") {
+        setBankroll(data.current_balance);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
   useEffect(() => {
-   async function checkSession() {
+    async function checkSession() {
       try {
         const res = await fetch("/api/validate", {
           method: "GET",
@@ -42,14 +59,38 @@ export function Dashboard() {
 
         if (!res.ok) {
           navigate("/");
+          return;
         }
+
+        await loadBankroll();
       } catch {
         navigate("/");
       }
     }
 
     checkSession();
-  }, [navigate]);
+  }, [navigate, loadBankroll]);
+
+  const updateBankroll = useCallback(
+    async (amount: number) => {
+      const res = await fetch("/api/bankroll", {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ current_balance: amount }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Unable to update bankroll");
+      }
+
+      const data = await res.json();
+      setBankroll(data.current_balance ?? amount);
+    },
+    []
+  );
 
   const addToBetSlip = (legs: BetLeg[]) => {
     setBetSlipLegs([...betSlipLegs, ...legs]);
@@ -70,11 +111,15 @@ export function Dashboard() {
     setTotalStake(0);
   };
 
-  const placeBet = () => {
+  const placeBet = async () => {
     if (totalStake <= bankroll) {
-      setBankroll(bankroll - totalStake);
-      clearBetSlip();
-      alert('Bet placed successfully!');
+      try {
+        await updateBankroll(bankroll - totalStake);
+        clearBetSlip();
+        alert('Bet placed successfully!');
+      } catch (error) {
+        alert('Unable to place bet. Please try again.');
+      }
     } else {
       alert('Insufficient bankroll!');
     }
@@ -87,9 +132,9 @@ export function Dashboard() {
       <div className="flex gap-6 p-6 max-w-[1800px] mx-auto">
         {/* Main Content */}
         <div className="flex-1 space-y-6">
-          <BankrollCard 
-            bankroll={bankroll} 
-            setBankroll={setBankroll}
+          <BankrollCard
+            bankroll={bankroll}
+            onSave={updateBankroll}
           />
           
           <AIRecommendations 
@@ -117,7 +162,7 @@ export function Dashboard() {
         </div>
       </div>
       
-      <ChatWidget />
+      <ChatWidget refreshBankroll={loadBankroll} />
     </div>
   );
 }

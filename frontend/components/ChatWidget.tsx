@@ -7,6 +7,11 @@ type Message = {
   text: string;
 };
 
+type ChatWidgetProps = {
+  refreshBankroll?: () => Promise<void>;
+};
+
+
 function formatBotMessage(text: string) {
   const escaped = text
     .replace(/&/g, '&amp;')
@@ -30,7 +35,7 @@ function formatBotMessage(text: string) {
   ));
 }
 
-export function ChatWidget() {
+export function ChatWidget({ refreshBankroll }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -61,8 +66,9 @@ export function ChatWidget() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/chat', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input.trim() })
       });
@@ -80,6 +86,7 @@ export function ChatWidget() {
         text: 'Sorry, something went wrong. Try again.'
       }]);
     } finally {
+      await refreshBankroll?.();
       setLoading(false);
     }
   }
