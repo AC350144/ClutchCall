@@ -9,3 +9,4 @@ cryptography # needed for mysql encrypted databases
 pyotp
 qrcode
 Pillow # for qr codes
+requests # for NBA API data fetching
