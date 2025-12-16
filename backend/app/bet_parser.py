@@ -138,18 +138,20 @@ def extract_odds(text: str) -> List[int]:
     odds_list = []
     
     # Match patterns like "+150", "-110", "@ +150", "@-110"
+    # Note: Word boundary \b doesn't work before +/-, so we use lookbehind or explicit patterns
     patterns = [
-        r'@\s*([+-]\d{2,4})',
-        r'\(\s*([+-]\d{2,4})\s*\)',
-        r'(?:odds?:?\s*)([+-]\d{2,4})',
-        r'\b([+-]\d{3})\b',
+        r'@\s*([+-]\d{2,4})',                    # @ +500, @-110
+        r'\(\s*([+-]\d{2,4})\s*\)',              # (+500), (-110)
+        r'(?:odds?:?\s*)([+-]\d{2,4})',          # odds: +500
+        r'(?:^|[\s,;])([+-]\d{3,4})(?:$|[\s,;])', # +500, -110 at word boundaries
+        r'(?:ML|ml|moneyline)\s*([+-]\d{3,4})',  # ML +500
     ]
     
     for pattern in patterns:
         matches = re.findall(pattern, text)
         for match in matches:
             odds = parse_american_odds(match)
-            if odds is not None:
+            if odds is not None and odds not in odds_list:
                 odds_list.append(odds)
     
     return odds_list

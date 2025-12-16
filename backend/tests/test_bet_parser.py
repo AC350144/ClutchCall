@@ -95,6 +95,31 @@ class TestExtractOdds(unittest.TestCase):
         odds = extract_odds("Lakers vs Celtics")
         self.assertEqual(odds, [])
 
+    def test_odds_without_at_symbol(self):
+        """Test extracting odds without @ symbol."""
+        odds = extract_odds("Lakers ML +500")
+        self.assertIn(500, odds)
+
+    def test_odds_with_moneyline_keyword(self):
+        """Test extracting odds with moneyline keyword."""
+        odds = extract_odds("Lakers moneyline +350")
+        self.assertIn(350, odds)
+
+    def test_odds_at_end_of_string(self):
+        """Test extracting odds at the end of the string."""
+        odds = extract_odds("Lakers +500")
+        self.assertIn(500, odds)
+
+    def test_odds_standalone(self):
+        """Test extracting standalone odds."""
+        odds = extract_odds("+500")
+        self.assertIn(500, odds)
+
+    def test_odds_with_vs_matchup(self):
+        """Test extracting odds from matchup format."""
+        odds = extract_odds("Lakers vs Celtics ML +500")
+        self.assertIn(500, odds)
+
 
 class TestCalculateImpliedProbability(unittest.TestCase):
     """Tests for implied probability calculation."""
