@@ -6,7 +6,7 @@ import { BrowserRouter } from 'react-router-dom';
 describe('Header component', () => {
   it('renders main heading with PRO badge', () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Header />
       </BrowserRouter>
     );
@@ -20,7 +20,7 @@ describe('Header component', () => {
 
   it('renders the subtitle text', () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Header />
       </BrowserRouter>
     );
@@ -31,7 +31,7 @@ describe('Header component', () => {
 
   it('renders Fast Bet Builder section', () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Header />
       </BrowserRouter>
     );
@@ -45,7 +45,7 @@ describe('Header component', () => {
 
   it('renders Smart Analysis section', () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Header />
       </BrowserRouter>
     );

@@ -14,7 +14,7 @@ describe('Dashboard component', () => {
 
   test('can place a bet if bankroll is sufficient', async () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Dashboard />
       </BrowserRouter>
     );
@@ -35,7 +35,7 @@ describe('Dashboard component', () => {
 
   test('shows disabled button if bankroll is insufficient', async () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Dashboard />
       </BrowserRouter>
     );
@@ -55,7 +55,7 @@ describe('Dashboard component', () => {
 
   test('can clear the bet slip', async () => {
     render(
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Dashboard />
       </BrowserRouter>
     );
