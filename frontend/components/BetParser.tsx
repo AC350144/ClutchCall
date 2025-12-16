@@ -4,6 +4,7 @@ import { BetLeg } from '../App';
 
 interface BetParserProps {
   addToBetSlip: (legs: BetLeg[]) => void;
+  bankroll?: number;
 }
 
 interface ParsedBetResult {
@@ -11,63 +12,93 @@ interface ParsedBetResult {
   qualityScore: number;
   analysis: string;
   recommendation: 'good' | 'caution' | 'avoid';
+  stakeRecommendation?: {
+    recommended: number;
+    conservative: number;
+    aggressive: number;
+    percentage: number;
+  };
 }
 
-export function BetParser({ addToBetSlip }: BetParserProps) {
+export function BetParser({ addToBetSlip, bankroll = 1000 }: BetParserProps) {
   const [betText, setBetText] = useState('');
   const [parsedResult, setParsedResult] = useState<ParsedBetResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleParse = async () => {
     if (!betText.trim()) return;
 
     setIsLoading(true);
+    setError(null);
     
-    // Simulate AI parsing
-    setTimeout(() => {
-      // Mock parsing result
-      const mockLegs: BetLeg[] = [
-        {
-          id: `leg-${Date.now()}-1`,
-          sport: 'NBA',
-          game: 'Warriors vs Nuggets',
-          betType: 'Spread',
-          selection: 'Warriors -2.5',
-          odds: -110,
+    try {
+      const response = await fetch('/api/parse-bet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          id: `leg-${Date.now()}-2`,
-          sport: 'NFL',
-          game: 'Cowboys vs Eagles',
-          betType: 'Moneyline',
-          selection: 'Cowboys ML',
-          odds: +165,
-        },
-      ];
+        body: JSON.stringify({
+          betText: betText.trim(),
+          bankroll: bankroll
+        }),
+      });
 
-      const qualityScore = Math.floor(Math.random() * 30) + 60; // 60-90
-      let recommendation: 'good' | 'caution' | 'avoid';
-      let analysis: string;
-
-      if (qualityScore >= 75) {
-        recommendation = 'good';
-        analysis = 'This parlay shows strong value. Both legs have solid backing from recent performance data and favorable matchups.';
-      } else if (qualityScore >= 60) {
-        recommendation = 'caution';
-        analysis = 'Moderate risk detected. Consider reducing stake or removing weaker legs. The correlation between these bets may reduce overall value.';
-      } else {
-        recommendation = 'avoid';
-        analysis = 'High risk detected. Multiple legs show negative expected value. Consider single bets instead of parlaying.';
+      if (!response.ok) {
+        throw new Error('Failed to parse bet');
       }
 
-      setParsedResult({
-        legs: mockLegs,
-        qualityScore,
-        analysis,
-        recommendation,
-      });
+      const data = await response.json();
+
+      if (data.success) {
+        // Transform the legs to match our BetLeg interface
+        const transformedLegs: BetLeg[] = data.legs.map((leg: any, index: number) => ({
+          id: `parsed-${Date.now()}-${index}`,
+          sport: leg.sport || 'Unknown',
+          game: leg.game || 'Unknown Game',
+          betType: leg.betType || 'Moneyline',
+          selection: leg.selection || '',
+          odds: leg.odds || -110,
+        }));
+
+        setParsedResult({
+          legs: transformedLegs,
+          qualityScore: data.qualityScore,
+          analysis: data.analysis,
+          recommendation: data.recommendation,
+          stakeRecommendation: data.stakeRecommendation,
+        });
+      } else {
+        setError(data.error || 'Failed to parse bet');
+      }
+    } catch (err) {
+      console.error('Parse error:', err);
+      // Fallback to mock data if API fails
+      fallbackParse();
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+
+  const fallbackParse = () => {
+    // Fallback mock parsing if API is unavailable
+    const mockLegs: BetLeg[] = [
+      {
+        id: `leg-${Date.now()}-1`,
+        sport: 'NBA',
+        game: 'Parsed from text',
+        betType: 'Spread',
+        selection: betText.substring(0, 50),
+        odds: -110,
+      },
+    ];
+
+    setParsedResult({
+      legs: mockLegs,
+      qualityScore: 65,
+      analysis: 'Unable to connect to AI analyzer. Showing basic parse results.',
+      recommendation: 'caution',
+    });
   };
 
   const handleAddAllLegs = () => {

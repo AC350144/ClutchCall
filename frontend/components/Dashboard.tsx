@@ -99,6 +99,7 @@ export function Dashboard() {
           
           <BetParser 
             addToBetSlip={addToBetSlip}
+            bankroll={bankroll}
           />
         </div>
 
