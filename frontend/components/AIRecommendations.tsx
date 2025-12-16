@@ -1,5 +1,5 @@
 import { Brain, TrendingUp, Activity, Plus } from 'lucide-react';
-import { BetLeg } from '../App';
+import { BetLeg } from './betHistoryStorage';
 
 interface AIRecommendationsProps {
   bankroll: number;
@@ -51,7 +51,8 @@ export function AIRecommendations({ bankroll, addToBetSlip }: AIRecommendationsP
       betType: rec.betType,
       selection: rec.selection,
       odds: rec.odds,
-      stake: (bankroll * rec.recommendedStake) / 100,
+      type: rec.betType,
+      description: `${rec.game} - ${rec.selection}`,
     };
     addToBetSlip([leg]);
   };

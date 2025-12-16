@@ -199,14 +199,14 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 🏦 Bank Accounts
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-400">
                 Manage your linked bank accounts for deposits and withdrawals
               </CardDescription>
             </div>
@@ -225,8 +225,8 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
           )}
           
           {success && (
-            <Alert className="mb-4 bg-green-50 border-green-200">
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            <Alert className="mb-4 bg-emerald-500/20 border-emerald-500">
+              <AlertDescription className="text-emerald-400">{success}</AlertDescription>
             </Alert>
           )}
 
@@ -242,12 +242,12 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
                   {accounts.map((account) => (
                     <div
                       key={account.id}
-                      className="flex items-center justify-between p-4 border rounded-lg bg-gray-50"
+                      className="flex items-center justify-between p-4 border border-slate-700 rounded-lg bg-slate-800/50"
                     >
                       <div className="flex items-center gap-4">
                         <div className="text-2xl">🏦</div>
                         <div>
-                          <div className="font-medium flex items-center gap-2">
+                          <div className="font-medium flex items-center gap-2 text-slate-200">
                             {account.bankName}
                             {account.isPrimary && (
                               <Badge variant="secondary" className="text-xs">
@@ -255,7 +255,7 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
                               </Badge>
                             )}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-slate-400">
                             {account.accountType.charAt(0).toUpperCase() + account.accountType.slice(1)} •••• {account.lastFour}
                           </div>
                         </div>
@@ -284,10 +284,10 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
               )}
 
               {accounts.length === 0 && !showAddForm && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-slate-400">
                   <div className="text-4xl mb-2">🏦</div>
-                  <p>No bank accounts linked yet</p>
-                  <p className="text-sm">Add a bank account to enable deposits and withdrawals</p>
+                  <p className="text-slate-300">No bank accounts linked yet</p>
+                  <p className="text-sm text-slate-500">Add a bank account to enable deposits and withdrawals</p>
                 </div>
               )}
 
@@ -302,18 +302,18 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
               )}
 
               {accounts.length >= 5 && (
-                <p className="text-center text-sm text-gray-500">
+                <p className="text-center text-sm text-slate-500">
                   Maximum of 5 bank accounts reached
                 </p>
               )}
 
               {/* Add Account Form */}
               {showAddForm && (
-                <form onSubmit={handleAddAccount} className="space-y-4 border-t pt-6 mt-4">
-                  <h3 className="font-semibold text-lg">Add New Bank Account</h3>
+                <form onSubmit={handleAddAccount} className="space-y-4 border-t border-slate-700 pt-6 mt-4">
+                  <h3 className="font-semibold text-lg text-slate-200">Add New Bank Account</h3>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="bankName">Bank Name</Label>
+                    <Label htmlFor="bankName" className="text-slate-300">Bank Name</Label>
                     <Select value={bankName} onValueChange={setBankName}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select your bank" />
@@ -330,18 +330,19 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
 
                   {bankName === "Other" && (
                     <div className="space-y-2">
-                      <Label htmlFor="customBankName">Enter Bank Name</Label>
+                      <Label htmlFor="customBankName" className="text-slate-300">Enter Bank Name</Label>
                       <Input
                         id="customBankName"
                         value={customBankName}
                         onChange={(e) => setCustomBankName(e.target.value)}
                         placeholder="Enter your bank name"
+                        className="bg-slate-700 border-slate-600 text-white"
                       />
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="accountType">Account Type</Label>
+                    <Label htmlFor="accountType" className="text-slate-300">Account Type</Label>
                     <Select value={accountType} onValueChange={setAccountType}>
                       <SelectTrigger>
                         <SelectValue />
@@ -354,38 +355,41 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="routingNumber">Routing Number</Label>
+                    <Label htmlFor="routingNumber" className="text-slate-300">Routing Number</Label>
                     <Input
                       id="routingNumber"
                       value={routingNumber}
                       onChange={(e) => setRoutingNumber(formatRoutingNumber(e.target.value))}
                       placeholder="9 digits"
                       maxLength={9}
+                      className="bg-slate-700 border-slate-600 text-white"
                     />
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500">
                       The 9-digit number on the bottom left of your check
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="accountNumber">Account Number</Label>
+                    <Label htmlFor="accountNumber" className="text-slate-300">Account Number</Label>
                     <Input
                       id="accountNumber"
                       type="password"
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(formatAccountNumber(e.target.value))}
                       placeholder="4-17 digits"
+                      className="bg-slate-700 border-slate-600 text-white"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirmAccountNumber">Confirm Account Number</Label>
+                    <Label htmlFor="confirmAccountNumber" className="text-slate-300">Confirm Account Number</Label>
                     <Input
                       id="confirmAccountNumber"
                       type="password"
                       value={confirmAccountNumber}
                       onChange={(e) => setConfirmAccountNumber(formatAccountNumber(e.target.value))}
                       placeholder="Re-enter account number"
+                      className="bg-slate-700 border-slate-600 text-white"
                     />
                   </div>
 
@@ -396,16 +400,16 @@ export default function BankAccounts({ onClose }: BankAccountsProps) {
                         id="isPrimary"
                         checked={isPrimary}
                         onChange={(e) => setIsPrimary(e.target.checked)}
-                        className="rounded"
+                        className="rounded bg-slate-700 border-slate-600"
                       />
-                      <Label htmlFor="isPrimary" className="text-sm font-normal">
+                      <Label htmlFor="isPrimary" className="text-sm font-normal text-slate-300">
                         Set as primary account
                       </Label>
                     </div>
                   )}
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-                    <p className="font-medium mb-1">🔒 Your data is encrypted</p>
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-sm text-blue-300">
+                    <p className="font-medium mb-1 text-blue-200">🔒 Your data is encrypted</p>
                     <p>
                       Bank account information is encrypted using industry-standard 
                       AES-256 encryption before being stored.
