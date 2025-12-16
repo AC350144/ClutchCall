@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Clipboard, Sparkles, CheckCircle, XCircle, AlertTriangle, TrendingUp, Target, Percent, DollarSign, BarChart3, Info, Flame, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface BetLeg {
@@ -100,6 +100,8 @@ export function BetParser({ addToBetSlip, bankroll = 1000 }: BetParserProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentMatchupIndex, setCurrentMatchupIndex] = useState(0);
+  const addedLegsRef = useRef<Set<string>>(new Set());
+
 
   const handleParse = async () => {
     if (!betText.trim()) return;
