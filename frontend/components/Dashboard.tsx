@@ -7,8 +7,17 @@ import { BetParser } from './BetParser';
 import { BetSlip } from './BetSlip';
 import { ChatWidget } from './ChatWidget';
 import { Achievements } from './Achievements';
+import { BetHistory } from './BetHistory';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { TrendingUp, Trophy } from 'lucide-react';
+import {
+  addBetTicket,
+  clearBetHistory,
+  loadBetHistory,
+  updateBetTicketStatus,
+  type BetTicket,
+  type TicketStatus,
+} from './betHistoryStorage';
 
 export interface BetLeg {
   id: string;
