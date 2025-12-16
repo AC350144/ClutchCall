@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { BankrollCard } from './BankrollCard';
 import { AIRecommendations } from './AIRecommendations';
@@ -76,6 +76,16 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [initialBetText, setInitialBetText] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const betParam = params.get('bet');
+    if (betParam) {
+      setInitialBetText(decodeURIComponent(betParam));
+    }
+  }, [location.search]);
 
   const [bankroll, setBankroll] = useState(() => {
     try {
@@ -228,7 +238,7 @@ export function Dashboard() {
               <div className="flex-1 space-y-6">
                 <BankrollCard bankroll={bankroll} setBankroll={setBankroll} />
                 <AIRecommendations bankroll={bankroll} addToBetSlip={addToBetSlip} />
-                <BetParser addToBetSlip={addToBetSlip} />
+                <BetParser addToBetSlip={addToBetSlip} initialBetText={initialBetText} />
                 <BetHistory
                   tickets={betHistory}
                   onClear={() => {
