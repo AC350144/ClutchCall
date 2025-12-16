@@ -215,20 +215,25 @@ export function Dashboard() {
       
       <div className="max-w-[1800px] mx-auto px-6 py-6">
         <Tabs defaultValue="bets" className="w-full">
-          <TabsList className="bg-slate-900/50 border border-slate-800 mb-6 h-10">
+          <TabsList className="bg-slate-900/50 border border-slate-200 mb-6 h-10">
             <TabsTrigger 
               value="bets" 
-              className="flex items-center gap-2 data-[state=active]:bg-slate-800 data-[state=active]:text-white text-slate-400"
+              className="flex items-center gap-2 data-[state=active]:bg-slate-600 data-[state=active]:text-white text-slate-400"
             >
-              <TrendingUp className="w-4 h-4" />
+              <TrendingUp className="w-4 h-4 text-white " />
+              <div className="text-slate-300">
               Bets
+
+              </div>
             </TabsTrigger>
             <TabsTrigger 
               value="achievements" 
-              className="flex items-center gap-2 data-[state=active]:bg-slate-800 data-[state=active]:text-white text-slate-400"
+              className="flex items-center gap-2 data-[state=active]:bg-slate-600 data-[state=active]:text-white text-slate-400"
             >
-              <Trophy className="w-4 h-4" />
-              Achievements
+              <Trophy className="w-4 h-4 text-white" />
+                <div className="text-slate-300">
+                  Achievements
+                </div>
             </TabsTrigger>
           </TabsList>
 
@@ -304,6 +309,7 @@ export function Dashboard() {
       </div>
 
       <ChatWidget />
+    </div>
     </div>
   );
 }
