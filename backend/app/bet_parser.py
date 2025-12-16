@@ -3,12 +3,19 @@ AI Bet Parser & Analyzer Module
 
 This module provides intelligent parsing and analysis of sports betting slips.
 It extracts structured bet data from natural language input and provides
-AI-powered recommendations based on odds analysis.
+AI-powered recommendations based on odds analysis and real NBA data.
 """
 
 import re
 import math
 from typing import List, Dict, Optional, Tuple, Any
+
+# Import sports data module for real NBA stats
+try:
+    from app.sports_data import get_enhanced_bet_analysis
+    SPORTS_DATA_AVAILABLE = True
+except ImportError:
+    SPORTS_DATA_AVAILABLE = False
 
 
 # Common sports keywords for detection
@@ -389,13 +396,148 @@ def parse_bet_text(bet_text: str) -> Dict[str, Any]:
     # Analyze bet quality
     quality_score, analysis, recommendation = analyze_bet_quality(legs, total_odds)
     
+    # Calculate detailed stats
+    detailed_stats = calculate_detailed_stats(legs, total_odds)
+    
+    # Fetch real NBA data if available
+    live_data = None
+    if SPORTS_DATA_AVAILABLE:
+        try:
+            live_data = get_enhanced_bet_analysis(bet_text)
+        except Exception as e:
+            print(f"Error fetching live data: {e}")
+    
     return {
         'success': True,
         'legs': legs,
         'totalOdds': total_odds,
         'qualityScore': quality_score,
         'analysis': analysis,
-        'recommendation': recommendation
+        'recommendation': recommendation,
+        'stats': detailed_stats,
+        'liveData': live_data
+    }
+
+
+def calculate_detailed_stats(legs: List[Dict], total_odds: int) -> Dict:
+    """
+    Calculate detailed betting statistics for more insightful analysis.
+    """
+    num_legs = len(legs)
+    
+    # Calculate implied probability for each leg and total
+    leg_probabilities = []
+    for leg in legs:
+        odds = leg.get('odds', -110)
+        prob = calculate_implied_probability(odds)
+        leg_probabilities.append(prob)
+    
+    # Combined probability (true parlay probability)
+    combined_prob = 1
+    for prob in leg_probabilities:
+        combined_prob *= prob
+    
+    # Break-even percentage - what win rate you need to profit long-term
+    if total_odds > 0:
+        break_even = 100 / (total_odds + 100)
+    else:
+        break_even = abs(total_odds) / (abs(total_odds) + 100)
+    
+    # Expected Value calculation (assuming fair odds, EV is slightly negative due to vig)
+    # True probability is typically 2-5% lower than implied due to bookmaker edge
+    vig_adjustment = 0.97  # Assume 3% vig
+    true_prob = combined_prob * vig_adjustment
+    
+    # EV = (prob of winning * payout) - (prob of losing * stake)
+    # For $100 stake
+    stake = 100
+    if total_odds > 0:
+        payout = stake * (total_odds / 100)
+    else:
+        payout = stake * (100 / abs(total_odds))
+    
+    ev = (true_prob * payout) - ((1 - true_prob) * stake)
+    ev_percentage = (ev / stake) * 100
+    
+    # Kelly Criterion - optimal bet sizing
+    # Kelly % = (bp - q) / b where b = decimal odds - 1, p = win prob, q = lose prob
+    if total_odds > 0:
+        b = total_odds / 100
+    else:
+        b = 100 / abs(total_odds)
+    
+    kelly_fraction = ((b * true_prob) - (1 - true_prob)) / b if b > 0 else 0
+    kelly_fraction = max(0, kelly_fraction)  # Can't be negative
+    
+    # Risk level based on number of legs and odds
+    if num_legs == 1 and abs(total_odds) < 200:
+        risk_level = "Low"
+        risk_description = "Single bet with moderate odds. Lower variance."
+    elif num_legs <= 2 and abs(total_odds) < 300:
+        risk_level = "Medium"
+        risk_description = "Small parlay or higher odds single. Balanced risk/reward."
+    elif num_legs <= 4:
+        risk_level = "High"
+        risk_description = "Multi-leg parlay. Harder to hit but better payout."
+    else:
+        risk_level = "Very High"
+        risk_description = "Large parlay with many legs. Fun bet but unlikely to hit."
+    
+    # Odds comparison insight
+    if total_odds > 500:
+        odds_insight = "Long shot bet. Low probability but high payout if it hits."
+    elif total_odds > 200:
+        odds_insight = "Underdog odds. Good value if you have an edge."
+    elif total_odds > 0:
+        odds_insight = "Slight underdog. Reasonable risk/reward ratio."
+    elif total_odds > -150:
+        odds_insight = "Slight favorite. Standard juice on this bet."
+    elif total_odds > -250:
+        odds_insight = "Moderate favorite. Risking more to win less."
+    else:
+        odds_insight = "Heavy favorite. Very likely to win but poor value."
+    
+    # Bet type insights
+    bet_types = [leg.get('betType', 'Unknown') for leg in legs]
+    unique_types = list(set(bet_types))
+    
+    if 'Prop' in unique_types:
+        type_insight = "Contains player props - higher variance but can find value."
+    elif 'Total' in unique_types and 'Spread' in unique_types:
+        type_insight = "Mixed spread and total bets - diversified approach."
+    elif all(t == 'Moneyline' for t in bet_types):
+        type_insight = "All moneyline bets - picking outright winners."
+    elif all(t == 'Spread' for t in bet_types):
+        type_insight = "All spread bets - factoring in point margins."
+    else:
+        type_insight = "Mixed bet types across legs."
+    
+    # Sports diversification
+    sports = [leg.get('sport', 'Unknown') for leg in legs]
+    unique_sports = list(set(sports))
+    
+    if len(unique_sports) > 1:
+        sport_insight = f"Cross-sport parlay ({', '.join(unique_sports)}). Events are independent."
+    elif unique_sports[0] != 'Unknown':
+        sport_insight = f"Single sport focus ({unique_sports[0]}). Consider game correlations."
+    else:
+        sport_insight = "Sport not detected. Verify your picks."
+    
+    return {
+        'impliedProbability': round(combined_prob * 100, 1),
+        'breakEvenPercentage': round(break_even * 100, 1),
+        'expectedValue': round(ev, 2),
+        'evPercentage': round(ev_percentage, 1),
+        'kellyPercentage': round(kelly_fraction * 100, 2),
+        'riskLevel': risk_level,
+        'riskDescription': risk_description,
+        'oddsInsight': odds_insight,
+        'betTypeInsight': type_insight,
+        'sportInsight': sport_insight,
+        'numberOfLegs': num_legs,
+        'potentialPayout': round(payout, 2),
+        'toWin': round(payout, 2),
+        'legProbabilities': [round(p * 100, 1) for p in leg_probabilities]
     }
 
 
