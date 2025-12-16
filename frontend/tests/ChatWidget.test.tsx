@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
-import { ChatWidget } from '../frontend/components/ChatWidget';
+import { ChatWidget } from '../components/ChatWidget';
 import { vi } from 'vitest';
 
 beforeAll(() => {

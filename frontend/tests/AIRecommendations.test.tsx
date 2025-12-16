@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { AIRecommendations } from '../../components/AIRecommendations';
+import { AIRecommendations } from '../components/AIRecommendations';
 import { describe, it, vi, expect } from 'vitest';
 
 describe('AIRecommendations component', () => {

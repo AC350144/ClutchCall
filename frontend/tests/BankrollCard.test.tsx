@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { BankrollCard } from '../../components/BankrollCard';
+import { BankrollCard } from '../components/BankrollCard';
 import { vi } from 'vitest';
 
 describe('BankrollCard component', () => {

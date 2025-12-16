@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { BetSlip } from '../frontend/components/BetSlip';
-import { BetLeg } from '../frontend/App';
+import { BetSlip } from '../components/BetSlip';
+import { BetLeg } from '../App';
 import { vi } from 'vitest';
 
 describe('BetSlip component', () => {

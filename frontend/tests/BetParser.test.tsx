@@ -1,8 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { BetParser } from '../frontend/components/BetParser';
+import { BetParser } from '../components/BetParser';
 import { vi } from 'vitest';
 
-vi.mock('../frontend/utils/parseBet', () => ({
+vi.mock('../utils/parseBet', () => ({
   parseBet: vi.fn(() => [
     { team: 'Team A', odds: 1.5 },
     { team: 'Team B', odds: 2.0 },

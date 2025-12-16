@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Dashboard } from '../frontend/components/Dashboard';
+import { Dashboard } from '../components/Dashboard';
 import { vi, describe, test, expect, beforeEach } from 'vitest';
+import { BrowserRouter } from 'react-router-dom';
 
 describe('Dashboard component', () => {
   let user: ReturnType<typeof userEvent.setup>;
@@ -12,7 +13,11 @@ describe('Dashboard component', () => {
   });
 
   test('can place a bet if bankroll is sufficient', async () => {
-    render(<Dashboard />);
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>
+    );
 
     const addButtons = screen.getAllByRole('button', { name: /Add to bet slip/i });
     await user.click(addButtons[0]);
@@ -24,11 +29,16 @@ describe('Dashboard component', () => {
     const placeBetButton = screen.getByRole('button', { name: /Place Bet/i });
     await user.click(placeBetButton);
 
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Bet placed'));
+    // Verify the toast notification appears
+    expect(screen.getByText(/Bet placed successfully/i)).toBeInTheDocument();
   });
 
   test('shows disabled button if bankroll is insufficient', async () => {
-    render(<Dashboard />);
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>
+    );
 
     const addButtons = screen.getAllByRole('button', { name: /Add to bet slip/i });
     await user.click(addButtons[0]);
@@ -37,14 +47,18 @@ describe('Dashboard component', () => {
     await user.clear(totalStakeInput);
     await user.type(totalStakeInput, '10000');
 
-    const placeBetButton = screen.getByRole('button', { name: /Insufficient Bankroll/i });
+    const placeBetButton = screen.getByRole('button', { name: /Fix Slip Issues/i });
 
     expect(placeBetButton).toBeDisabled();
-    expect(placeBetButton).toHaveTextContent(/Insufficient Bankroll/i);
+    expect(placeBetButton).toHaveTextContent(/Fix Slip Issues/i);
   });
 
   test('can clear the bet slip', async () => {
-    render(<Dashboard />);
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>
+    );
 
     const addButtons = screen.getAllByRole('button', { name: /Add to bet slip/i });
     await user.click(addButtons[0]);

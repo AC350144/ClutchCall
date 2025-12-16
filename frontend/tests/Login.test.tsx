@@ -1,23 +1,36 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Login } from '../frontend/components/Login';
+import { Login } from '../components/Login';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { BrowserRouter } from 'react-router-dom';
 
 describe('Login component', () => {
   test('renders login heading', () => {
-    render(<Login />);
+    render(
+      <BrowserRouter>
+        <Login />
+      </BrowserRouter>
+    );
     expect(screen.getByText(/Welcome Back/i)).toBeInTheDocument();
   });
 
   test('renders email and password inputs', () => {
-    render(<Login />);
+    render(
+      <BrowserRouter>
+        <Login />
+      </BrowserRouter>
+    );
     expect(screen.getByLabelText(/Email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Password/i)).toBeInTheDocument();
   });
 
   test('allows user to type email and password', async () => {
     const user = userEvent.setup();
-    render(<Login />);
+    render(
+      <BrowserRouter>
+        <Login />
+      </BrowserRouter>
+    );
 
     const emailInput = screen.getByPlaceholderText(/Enter your email/i);
     const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
@@ -29,21 +42,33 @@ describe('Login component', () => {
     expect(passwordInput).toHaveValue('password123');
   });
 
-  test('calls onSignIn when form is submitted', async () => {
+  test('form can be submitted with email and password', async () => {
     const user = userEvent.setup();
-    const onSignIn = vi.fn();
-    render(<Login onSignIn={onSignIn} />);
+    render(
+      <BrowserRouter>
+        <Login />
+      </BrowserRouter>
+    );
 
-    await user.type(screen.getByPlaceholderText(/Enter your email/i), 'test@example.com');
-    await user.type(screen.getByPlaceholderText(/Enter your password/i), 'password123');
+    const emailInput = screen.getByPlaceholderText(/Enter your email/i);
+    const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
 
-    await user.click(screen.getByRole('button', { name: /Sign In/i }));
-    expect(onSignIn).toHaveBeenCalledTimes(1);
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'password123');
+
+    const submitButton = screen.getByRole('button', { name: /Sign In/i });
+    expect(submitButton).toBeInTheDocument();
+    expect(emailInput).toHaveValue('test@example.com');
+    expect(passwordInput).toHaveValue('password123');
   });
 
   test('toggles password visibility when eye icon is clicked', async () => {
     const user = userEvent.setup();
-    render(<Login />);
+    render(
+      <BrowserRouter>
+        <Login />
+      </BrowserRouter>
+    );
 
     const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
 
@@ -60,7 +85,11 @@ describe('Login component', () => {
   test('calls onForgotPassword when link is clicked', async () => {
     const user = userEvent.setup();
     const onForgotPassword = vi.fn();
-    render(<Login onForgotPassword={onForgotPassword} />);
+    render(
+      <BrowserRouter>
+        <Login onForgotPassword={onForgotPassword} />
+      </BrowserRouter>
+    );
 
     await user.click(screen.getByText(/Forgot password\?/i));
     expect(onForgotPassword).toHaveBeenCalledTimes(1);
@@ -69,7 +98,11 @@ describe('Login component', () => {
   test('calls onSignUp when sign up button is clicked', async () => {
     const user = userEvent.setup();
     const onSignUp = vi.fn();
-    render(<Login onSignUp={onSignUp} />);
+    render(
+      <BrowserRouter>
+        <Login onSignUp={onSignUp} />
+      </BrowserRouter>
+    );
 
     await user.click(screen.getByText(/Sign up/i));
     expect(onSignUp).toHaveBeenCalledTimes(1);

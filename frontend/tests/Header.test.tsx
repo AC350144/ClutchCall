@@ -1,10 +1,15 @@
 import { render, screen } from '@testing-library/react';
-import { Header } from '../frontend/components/Header';
+import { Header } from '../components/Header';
 import { describe, it, expect } from 'vitest';
+import { BrowserRouter } from 'react-router-dom';
 
 describe('Header component', () => {
   it('renders main heading with PRO badge', () => {
-    render(<Header />);
+    render(
+      <BrowserRouter>
+        <Header />
+      </BrowserRouter>
+    );
     
     const mainHeading = screen.getByRole('heading', { name: /ClutchCall/i });
     expect(mainHeading).toBeInTheDocument();
@@ -14,14 +19,22 @@ describe('Header component', () => {
   });
 
   it('renders the subtitle text', () => {
-    render(<Header />);
+    render(
+      <BrowserRouter>
+        <Header />
+      </BrowserRouter>
+    );
     
     const subtitle = screen.getByText(/AI-Powered Betting Assistant/i);
     expect(subtitle).toBeInTheDocument();
   });
 
   it('renders Fast Bet Builder section', () => {
-    render(<Header />);
+    render(
+      <BrowserRouter>
+        <Header />
+      </BrowserRouter>
+    );
     
     const fastBetBuilder = screen.getByText(/Fast Bet Builder/i);
     expect(fastBetBuilder).toBeInTheDocument();
@@ -31,7 +44,11 @@ describe('Header component', () => {
   });
 
   it('renders Smart Analysis section', () => {
-    render(<Header />);
+    render(
+      <BrowserRouter>
+        <Header />
+      </BrowserRouter>
+    );
     
     const smartAnalysis = screen.getByText(/Smart Analysis/i);
     expect(smartAnalysis).toBeInTheDocument();

@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LandingPage } from '../frontend/components/LandingPage';
-import { describe, test, expect } from 'vitest';
+import { LandingPage } from '../components/LandingPage';
+import { describe, it, vi, expect } from 'vitest';
 
 describe('LandingPage', () => {
-  test('renders main heading', () => {
+  it('renders the main heading', () => {
     render(<LandingPage onLogin={() => {}} />);
 
     const heading = screen.getByRole('heading', {
@@ -14,38 +14,41 @@ describe('LandingPage', () => {
     expect(heading).toBeInTheDocument();
   });
 
-  test('renders hero image', () => {
+  it('renders the hero image', () => {
     render(<LandingPage onLogin={() => {}} />);
 
     const image = screen.getByAltText(/sports stadium/i);
     expect(image).toBeInTheDocument();
   });
 
-  test('Sign In button triggers login', async () => {
+  it('Sign In button triggers login', async () => {
     const user = userEvent.setup();
     const onLogin = vi.fn();
 
     render(<LandingPage onLogin={onLogin} />);
 
-    await user.click(
-      screen.getByRole('button', { name: /sign in/i })
-    );
+    const signInButton = screen.getByRole('button', { name: /sign in/i });
+    await user.click(signInButton);
 
-    expect(onLogin).toHaveBeenCalled();
+    expect(onLogin).toHaveBeenCalledTimes(1);
   });
 
-  test('Get Started button triggers login', async () => {
+  it('Get Started buttons trigger login', async () => {
     const user = userEvent.setup();
     const onLogin = vi.fn();
 
     render(<LandingPage onLogin={onLogin} />);
 
-    const buttons = screen.getAllByRole('button', {
+    // There are multiple "Get Started" buttons, click all to test each
+    const getStartedButtons = screen.getAllByRole('button', {
       name: /get started/i,
     });
 
-    await user.click(buttons[0]);
+    for (const button of getStartedButtons) {
+      await user.click(button);
+    }
 
-    expect(onLogin).toHaveBeenCalled();
+    // Ensure onLogin was called as many times as buttons clicked
+    expect(onLogin).toHaveBeenCalledTimes(getStartedButtons.length);
   });
 });
