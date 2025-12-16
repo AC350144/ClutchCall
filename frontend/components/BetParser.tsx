@@ -91,6 +91,10 @@ export function BetParser({ addToBetSlip, bankroll = 1000 }: BetParserProps) {
   const [error, setError] = useState<string | null>(null);
   const [currentMatchupIndex, setCurrentMatchupIndex] = useState(0);
 
+  useEffect(() => {
+    setBetText(initialBetText);
+  }, [initialBetText]);
+
   const handleParse = async () => {
     if (!betText.trim()) return;
 
