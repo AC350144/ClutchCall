@@ -88,15 +88,15 @@ export function ChatWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center z-50"
+        className="fixed bottom-6 right-6 w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center z-50"
       >
-        <MessageCircle className="w-6 h-6 text-white" />
+        <MessageCircle className="w-8 h-8 text-white" />
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-[380px] h-[520px] bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col overflow-hidden z-50">
+    <div className="fixed bottom-6 right-6 w-[440px] h-[640px] bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col overflow-hidden z-50">
       <div className="flex items-center gap-3 p-4 border-b border-slate-700 bg-gradient-to-r from-slate-800 to-slate-900">
         <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
           <MessageCircle className="w-5 h-5 text-white" />
