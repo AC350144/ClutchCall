@@ -44,10 +44,19 @@ function Landing() {
   );
 }
 
+export interface BetLeg {
+  id: string;
+  sport: string;
+  game: string;
+  selection: string;
+  betType: string;
+  odds: number;
+  stake: number;
+}
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         {/* Landing Page */}
         <Route path="/" element={<Landing />} />

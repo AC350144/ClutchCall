@@ -47,14 +47,68 @@ def create_tables():
         c.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(100),
                 email VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                password_hash VARCHAR(255),
                 mfa_secret CHAR(32) UNIQUE DEFAULT NULL,
+                display_name VARCHAR(255),
+                avatar VARCHAR(50) DEFAULT '🎰',
+                phone VARCHAR(20),
+                betting_experience ENUM('beginner', 'intermediate', 'experienced', 'professional') DEFAULT 'beginner',
+                favorite_sports JSON,
+                monthly_budget DECIMAL(12,2) DEFAULT 500.00,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 is_active BOOLEAN DEFAULT TRUE
             )
         """)
+        
+        # Add columns if they don't exist (for existing databases)
+        # MySQL doesn't support ADD COLUMN IF NOT EXISTS, so we check first
+        def add_column_if_not_exists(cursor, table, column, definition):
+            try:
+                cursor.execute(f"SELECT {column} FROM {table} LIMIT 1")
+            except:
+                try:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+                except Exception as e:
+                    pass  # Column might already exist
+        
+        add_column_if_not_exists(c, "users", "username", "VARCHAR(100)")
+        add_column_if_not_exists(c, "users", "password", "VARCHAR(255)")
+        add_column_if_not_exists(c, "users", "display_name", "VARCHAR(255)")
+        add_column_if_not_exists(c, "users", "avatar", "VARCHAR(50) DEFAULT '🎰'")
+        add_column_if_not_exists(c, "users", "phone", "VARCHAR(20)")
+        add_column_if_not_exists(c, "users", "betting_experience", "ENUM('beginner', 'intermediate', 'experienced', 'professional') DEFAULT 'beginner'")
+        add_column_if_not_exists(c, "users", "favorite_sports", "JSON")
+        add_column_if_not_exists(c, "users", "monthly_budget", "DECIMAL(12,2) DEFAULT 500.00")
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS bank_accounts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                account_holder_name VARCHAR(255),
+                bank_name VARCHAR(255),
+                account_type ENUM('checking', 'savings') DEFAULT 'checking',
+                encrypted_routing_number TEXT NOT NULL,
+                encrypted_account_number TEXT NOT NULL,
+                routing_number_hash CHAR(64) NOT NULL,
+                account_number_hash CHAR(64) NOT NULL,
+                last_four VARCHAR(4),
+                is_primary BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
+                is_verified BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_user_accounts (user_id)
+            )
+        """)
+        
+        # Add last_four and is_active columns if they don't exist
+        add_column_if_not_exists(c, "bank_accounts", "last_four", "VARCHAR(4)")
+        add_column_if_not_exists(c, "bank_accounts", "is_active", "BOOLEAN DEFAULT TRUE")
 
         c.execute("""
             CREATE TABLE IF NOT EXISTS bankrolls (

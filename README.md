@@ -150,3 +150,10 @@ The application uses MySQL with the following main tables:
 - `bet_types` - Types of bets available
 
 See `backend/database.sql` for the complete schema.
+## Contributing
+
+1. Create a new branch for your feature
+2. Make your changes
+3. Run tests to ensure everything works
+4. Submit a pull request
+

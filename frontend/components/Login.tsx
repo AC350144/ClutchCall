@@ -65,7 +65,7 @@ export function Login({ onSignUp, onForgotPassword }: LoginProps) {
   }
 };
 
-  if (showMFA) return <MFA onComplete={() => window.location.href = "/"} />;
+  if (showMFA) return <MFA onComplete={() => navigate("/dashboard")} />;
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Receipt, Trash2, Edit2, DollarSign, TrendingUp } from 'lucide-react';
-import { BetLeg } from '../App';
+import { BetLeg } from './betHistoryStorage';
 
 interface BetSlipProps {
   legs: BetLeg[];
@@ -31,7 +31,7 @@ export function BetSlip({
     typeof odds === 'number' && Number.isFinite(odds) && odds !== 0;
 
   const legKey = (leg: BetLeg) =>
-    `${leg.game.trim().toLowerCase()}|${leg.betType.trim().toLowerCase()}|${leg.selection
+    `${(leg.game ?? '').trim().toLowerCase()}|${(leg.betType ?? '').trim().toLowerCase()}|${(leg.selection ?? '')
       .trim()
       .toLowerCase()}`;
 

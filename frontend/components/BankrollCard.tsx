@@ -1,20 +1,32 @@
 import { Wallet, TrendingUp, AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface BankrollCardProps {
   bankroll: number;
-  setBankroll: (amount: number) => void;
+  onSave: (amount: number) => Promise<void>;
 }
 
-export function BankrollCard({ bankroll, setBankroll }: BankrollCardProps) {
+export function BankrollCard({ bankroll, onSave }: BankrollCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(bankroll.toString());
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = () => {
+  useEffect(() => {
+    setInputValue(bankroll.toString());
+  }, [bankroll]);
+
+  const handleSave = async () => {
     const newAmount = parseFloat(inputValue);
-    if (!isNaN(newAmount) && newAmount >= 0) {
-      setBankroll(newAmount);
+    if (isNaN(newAmount) || newAmount < 0) return;
+
+    try {
+      setIsSaving(true);
+      await onSave(newAmount);
       setIsEditing(false);
+    } catch (error) {
+      alert("Unable to update bankroll. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -59,9 +71,10 @@ export function BankrollCard({ bankroll, setBankroll }: BankrollCardProps) {
               />
               <button
                 onClick={handleSave}
-                className="bg-emerald-500 text-white px-3 py-1 rounded text-xs hover:bg-emerald-600"
+                disabled={isSaving}
+                className="bg-emerald-500 text-white px-3 py-1 rounded text-xs hover:bg-emerald-600 disabled:opacity-50"
               >
-                Save
+                {isSaving ? "Saving..." : "Save"}
               </button>
             </div>
           ) : (

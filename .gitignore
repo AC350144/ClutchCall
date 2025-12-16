@@ -3,6 +3,7 @@ node_modules/
 
 # build output
 dist/
+.vite/
 
 # Python cache
 __pycache__/
@@ -12,9 +13,13 @@ __pycache__/
 
 # environment variables
 .env
+backend/.env
 
 # Python cache
 *.pyc
 
 # Python venv
 AI Financial Assistant/.venv/
+
+# Don't need to store database files
+*.db*
