@@ -1,0 +1,164 @@
+/* General Page */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Helvetica, sans-serif;
+    background-color: #0f172a; /* slate-950 background */
+    color: #cbd5e1; /* slate-300-ish for general text */
+}
+
+/* Header */
+.header {
+    width: 100vw;
+    height: 145px;
+    background: linear-gradient(to right bottom, #22c55e 0%, #14b8a6 50%, #38bdf8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.header-content p {
+    color: white;
+    font-size: 2.75em;
+    margin: 0;
+}
+
+/* Main content */
+.main {
+    font-size: 1.25em;
+    width: calc(100vw - 40px);
+    box-sizing: border-box;
+    height: calc(100vh - 145px);
+    overflow-y: hidden;
+    padding-bottom: 0;
+}
+
+/* Entries container */
+.entries {
+    max-height: calc(100vh - 325px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+
+.entry-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 60px; /* Entry | Analyze | Delete */
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.entry-section-title h2:first-child {
+    text-align: center;
+    color: #e2e8f0; /* slate-200 for headings */
+}
+
+.entry-row {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    position: relative;
+}
+
+.entry-row::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    width: 75%;
+    border-bottom: 1px solid #334155; /* slate-700 border */
+}
+
+/* Clipboard content button */
+.entry-btn {
+    width: 100%;
+    text-align: center;
+    font-family: Helvetica, sans-serif;
+    border: 0;
+    background-color: transparent;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: lighter;
+    color: #e2e8f0; /* slate-200 */
+    transition: color 0.2s ease;
+}
+
+.entry-btn:hover {
+    color: #22c55e; /* emerald-500 */
+}
+
+/* Analyze button (Logo.JPG) */
+.analyze-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: url('./Logo.JPG') no-repeat center center;
+    background-size: cover;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.analyze-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Delete button */
+.delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+}
+
+.delete-btn img {
+    width: 32px;
+    height: 32px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.delete-btn img:hover {
+    transform: scale(1.2);
+    opacity: 0.85;
+}
+
+/* Clear history button */
+.clear-history-btn {
+    background: linear-gradient(to right, #22c55e, #14b8a6);
+    color: white;
+    font-size: 1.25em;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 415px;
+    height: 55px;
+    box-shadow: 0px 4px 6px rgba(0,0,0,0.2);
+    display: block;
+    margin: 0 auto 2.5rem auto;
+    text-align: center;
+    transition: background 0.2s ease;
+}
+
+.clear-history-btn:hover {
+    background: linear-gradient(to right, #16a34a, #0d9488);
+}
+
+/* Scrollbar styling */
+.entries::-webkit-scrollbar {
+    width: 10px;
+}
+
+.entries::-webkit-scrollbar-thumb {
+    background-color: #22c55e; /* emerald-500 */
+    border-radius: 5px;
+}
+
+.entries::-webkit-scrollbar-track {
+    background: #0f172a; /* slate-950 */
+}

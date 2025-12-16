@@ -20,3 +20,6 @@ backend/.env
 
 # Python venv
 AI Financial Assistant/.venv/
+
+# Don't need to store database files
+*.db*

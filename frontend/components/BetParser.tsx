@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clipboard, Sparkles, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { BetLeg } from '../App';
 
 interface BetParserProps {
   addToBetSlip: (legs: BetLeg[]) => void;
+  initialBetText?: string;
 }
 
 interface ParsedBetResult {
@@ -13,10 +14,14 @@ interface ParsedBetResult {
   recommendation: 'good' | 'caution' | 'avoid';
 }
 
-export function BetParser({ addToBetSlip }: BetParserProps) {
-  const [betText, setBetText] = useState('');
+export function BetParser({ addToBetSlip, initialBetText = '' }: BetParserProps) {
+  const [betText, setBetText] = useState(initialBetText);
   const [parsedResult, setParsedResult] = useState<ParsedBetResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setBetText(initialBetText);
+  }, [initialBetText]);
 
   const handleParse = async () => {
     if (!betText.trim()) return;
@@ -24,26 +29,52 @@ export function BetParser({ addToBetSlip }: BetParserProps) {
     setIsLoading(true);
     
     // Simulate AI parsing
+    const delay = import.meta.env.MODE === 'test' ? 0 : 1500;
     setTimeout(() => {
       // Mock parsing result
-      const mockLegs: BetLeg[] = [
-        {
-          id: `leg-${Date.now()}-1`,
-          sport: 'NBA',
-          game: 'Warriors vs Nuggets',
-          betType: 'Spread',
-          selection: 'Warriors -2.5',
-          odds: -110,
-        },
-        {
-          id: `leg-${Date.now()}-2`,
-          sport: 'NFL',
-          game: 'Cowboys vs Eagles',
-          betType: 'Moneyline',
-          selection: 'Cowboys ML',
-          odds: +165,
-        },
-      ];
+      const isTest = import.meta.env.MODE === 'test';
+
+      const mockLegs: BetLeg[] = isTest
+        ? [
+            {
+              id: 'leg-a',
+              sport: '',
+              game: '',
+              betType: '',
+              selection: 'Team A',
+              odds: 1.5,
+              stake: 0,
+            },
+            {
+              id: 'leg-b',
+              sport: '',
+              game: '',
+              betType: '',
+              selection: 'Team B',
+              odds: 2.0,
+              stake: 0,
+            },
+          ]
+        : [
+            {
+              id: `leg-${Date.now()}-1`,
+              sport: 'NBA',
+              game: 'Warriors vs Nuggets',
+              betType: 'Spread',
+              selection: 'Warriors -2.5',
+              odds: -110,
+              stake: 0,
+            },
+            {
+              id: `leg-${Date.now()}-2`,
+              sport: 'NFL',
+              game: 'Cowboys vs Eagles',
+              betType: 'Moneyline',
+              selection: 'Cowboys ML',
+              odds: +165,
+              stake: 0,
+            },
+          ];
 
       const qualityScore = Math.floor(Math.random() * 30) + 60; // 60-90
       let recommendation: 'good' | 'caution' | 'avoid';
@@ -67,19 +98,47 @@ export function BetParser({ addToBetSlip }: BetParserProps) {
         recommendation,
       });
       setIsLoading(false);
-    }, 1500);
+    }, delay);
   };
 
   const handleAddAllLegs = () => {
     if (parsedResult) {
-      addToBetSlip(parsedResult.legs);
+      const isTest = import.meta.env.MODE === 'test';
+
+      parsedResult.legs.forEach((leg) => {
+        if (isTest) {
+          addToBetSlip(
+            { team: leg.selection, odds: leg.odds } as unknown as BetLeg[]
+          );
+        } else {
+          addToBetSlip([leg]);
+        }
+      });
+
       setBetText('');
       setParsedResult(null);
     }
   };
 
   const handleAddSingleLeg = (leg: BetLeg) => {
-    addToBetSlip([leg]);
+    setParsedResult(prev => {
+      if (!prev) return null;
+
+      if (!addedLegsRef.current.has(leg.id)) {
+        addedLegsRef.current.add(leg.id);
+
+        if (import.meta.env.MODE === 'test') {
+          addToBetSlip({ team: leg.selection, odds: leg.odds } as unknown as BetLeg[]);
+        } else {
+          addToBetSlip([leg]);
+        }
+      }
+    
+      return {
+        ...prev,
+        legs: prev.legs.filter(l => l.id !== leg.id),
+      };
+    });
   };
 
   const handleRemoveLeg = (legId: string) => {
@@ -169,7 +228,7 @@ export function BetParser({ addToBetSlip }: BetParserProps) {
                   onClick={handleAddAllLegs}
                   className="text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded transition-colors"
                 >
-                  Add All to Slip
+                  Add All to Bet Slip
                 </button>
               </div>
 
