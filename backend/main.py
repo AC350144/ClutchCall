@@ -18,7 +18,8 @@ from app.bank_account import (
     validate_routing_number,
     validate_account_number,
     mask_account_number,
-    mask_routing_number
+    mask_routing_number,
+)
 from app.logic import (
     american_to_decimal,
     extract_first_american_odds,
