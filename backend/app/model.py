@@ -17,6 +17,7 @@ def train_and_save_model(csv_path="data/sample_data.csv"):
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
     print("✅ Model Trained and Saved")
+    return model
 
 def load_model():
     """Load the trained model, or train it if not found."""
@@ -24,3 +25,9 @@ def load_model():
         print("⚠️ Model not found — training a new one.")
         train_and_save_model()
     return joblib.load(MODEL_PATH)
+
+class DummyBudgetModel:
+    """Lightweight fallback model to keep tests runnable without heavy deps."""
+
+    def predict(self, rows):
+        return [[0.4, 0.3, 0.3] for _ in rows]

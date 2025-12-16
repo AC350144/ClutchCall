@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { BankrollCard } from './BankrollCard';
 import { AIRecommendations } from './AIRecommendations';
@@ -16,17 +16,6 @@ import {
   type BetTicket,
   type TicketStatus,
 } from './betHistoryStorage';
-
-import { BetHistory } from './BetHistory';
-import {
-  addBetTicket,
-  clearBetHistory,
-  loadBetHistory,
-  updateBetTicketStatus,
-  type BetTicket,
-  type TicketStatus,
-} from './betHistoryStorage';
-
 
 export interface BetLeg {
   id: string;
@@ -118,12 +107,8 @@ export function Dashboard() {
   const [totalStake, setTotalStake] = useState(0);
 
   const [betHistory, setBetHistory] = useState<BetTicket[]>([]);
+  const [toast, setToast] = useState<ToastState>({ open: false, kind: 'info', message: '' });
 
-  const [toast, setToast] = useState<ToastState>({
-    open: false,
-    kind: 'info',
-    message: '',
-  });
   const toastTimerRef = useRef<number | null>(null);
 
   const showToast = (kind: ToastState['kind'], message: string, ms = 2200) => {
@@ -136,6 +121,29 @@ export function Dashboard() {
   };
 
   // Auth/session guard
+  const loadBankroll = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bankroll', { credentials: 'include' });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (typeof data.current_balance === 'number') {
+        setBankroll(data.current_balance);
+      }
+    } catch {}
+  }, []);
+
+  const updateBankroll = useCallback(async (amount: number) => {
+    const res = await fetch('/api/bankroll', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_balance: amount }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    setBankroll(data.current_balance ?? amount);
+  }, []);
+
   useEffect(() => {
     async function checkSession() {
       try {
@@ -143,16 +151,23 @@ export function Dashboard() {
           method: 'GET',
           credentials: 'include',
         });
-
         if (!res.ok) {
           navigate('/');
+          return;
         }
+        await loadBankroll();
       } catch {
         navigate('/');
       }
     }
     checkSession();
+  }, [navigate, loadBankroll]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const bet = params.get('bet') || '';
+    if (bet) setInitialBetText(bet);
+  }, [location.search]);
 
   // Load bet history on mount
   useEffect(() => {
@@ -172,24 +187,10 @@ export function Dashboard() {
     }
   }, [bankroll]);
 
-  const addToBetSlip = (legs: BetLeg[]) => {
-    setBetSlipLegs([...betSlipLegs, ...legs]);
-  };
-
-  const removeLeg = (id: string) => {
-    setBetSlipLegs(betSlipLegs.filter((leg) => leg.id !== id));
-  };
-
-  const updateLeg = (id: string, updates: Partial<BetLeg>) => {
-    setBetSlipLegs(
-      betSlipLegs.map((leg) => (leg.id === id ? { ...leg, ...updates } : leg))
-    );
-  };
-
-  const addToBetSlip = (legs: BetLeg[]) => setBetSlipLegs([...betSlipLegs, ...legs]);
-  const removeLeg = (id: string) => setBetSlipLegs(betSlipLegs.filter((leg) => leg.id !== id));
+  const addToBetSlip = (legs: BetLeg[]) => setBetSlipLegs((l) => [...l, ...legs]);
+  const removeLeg = (id: string) => setBetSlipLegs((l) => l.filter((leg) => leg.id !== id));
   const updateLeg = (id: string, updates: Partial<BetLeg>) =>
-    setBetSlipLegs(betSlipLegs.map((leg) => (leg.id === id ? { ...leg, ...updates } : leg)));
+    setBetSlipLegs((l) => l.map((leg) => (leg.id === id ? { ...leg, ...updates } : leg)));
   const clearBetSlip = () => {
     setBetSlipLegs([]);
     setTotalStake(0);
@@ -223,9 +224,7 @@ export function Dashboard() {
     const totalPayout = totalStake + potentialWin;
 
     const ticket: BetTicket = {
-      id: (crypto as any)?.randomUUID
-        ? (crypto as any).randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       legs: betSlipLegs,
       stake: totalStake,
@@ -237,7 +236,6 @@ export function Dashboard() {
 
     const nextHistory = addBetTicket(ticket);
     setBetHistory(nextHistory);
-
     setBankroll((b) => b - totalStake);
     clearBetSlip();
 
@@ -273,7 +271,6 @@ export function Dashboard() {
       <Header />
 
       <Toast toast={toast} onClose={() => setToast((t) => ({ ...t, open: false }))} />
-
       <div className="flex gap-6 p-6 max-w-[1800px] mx-auto">
         <div className="flex-1 space-y-6">
           <BankrollCard bankroll={bankroll} setBankroll={setBankroll} />
@@ -292,7 +289,6 @@ export function Dashboard() {
             onSetStatus={setTicketStatus}
           />
         </div>
-
         <div className="w-[420px] shrink-0">
           <BetSlip
             legs={betSlipLegs}
@@ -306,8 +302,7 @@ export function Dashboard() {
           />
         </div>
       </div>
-
-      <ChatWidget />
+      <ChatWidget refreshBankroll={loadBankroll} />
     </div>
   );
 }

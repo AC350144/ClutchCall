@@ -19,6 +19,14 @@ from app.bank_account import (
     validate_account_number,
     mask_account_number,
     mask_routing_number
+from app.logic import (
+    american_to_decimal,
+    extract_first_american_odds,
+    implied_probability,
+    parse_percent,
+    parse_stake,
+    payout_for_stake,
+    recommend_stake,
 )
 
 app = Flask(__name__)
@@ -39,15 +47,72 @@ user_data = {
         "food": 300,
         "entertainment": 200,
         "bills": 1000
-    }
+    },
+    "bankroll": 5000.0,
+    "risk_mode": "conservative"
 }
 
 def calculate_remaining_budget():
     total_spent = sum(user_data["categories"].values()) + user_data["savings"]
     return user_data["income"] - total_spent
 
-def handle_input(user_input):
+def ensure_connection():
+    """Ensure the global DB connection is alive, recreating it if needed."""
+    global conn
+    try:
+        conn.ping(reconnect=True)
+    except Exception:
+        conn = get_connection(create_db_if_missing=False)
+
+
+def authenticate_user(include_user=False):
+    token = request.cookies.get("token")
+
+    if not token:
+        return False, make_response("No token provided.", 401), None
+
+    payload = decode_token(token)
+
+    if not payload or payload.get("type") != "access" or not payload.get("email"):
+        resp = make_response("Unauthorized.", 401)
+        resp.delete_cookie(
+            "token",
+            path="/",
+            httponly=True,
+            secure=False,
+            samesite="Lax",
+        )
+        return False, resp, None
+
+    if not include_user:
+        return True, None, payload
+
+    ensure_connection()
+    with conn.cursor() as c:
+        c.execute("SELECT id, email FROM users WHERE email = %s", (payload.get("email"),))
+        user = c.fetchone()
+
+    if not user:
+        return False, make_response("Unauthorized.", 401), None
+
+    return True, user, payload
+
+def handle_input(user_input, bankroll_record=None, user_id=None):
     text = user_input.lower().strip()
+
+    def get_bankroll_balance():
+        if bankroll_record and bankroll_record.get("current_balance") is not None:
+            return float(bankroll_record.get("current_balance", 0))
+        return float(user_data.get("bankroll", 0))
+
+    def set_bankroll_balance(amount: float):
+        nonlocal bankroll_record
+
+        if not user_id:
+            raise PermissionError("Please log in to update your bankroll.")
+
+        bankroll_record = update_bankroll_balance(user_id, amount, bankroll_record)
+        return bankroll_record
 
     #Greet user
     if text in ["hi", "hello", "hey"]:
@@ -59,12 +124,117 @@ def handle_input(user_input):
 
     if "help" in text:
         return ("Here's what you can say:<br>"
+                "<b>Budget / Finance:</b><br>"
                 "- 'Show my budget'<br>"
                 "- 'Add 200 to food'<br>"
                 "- 'Update entertainment to 400'<br>"
                 "- 'Set income to 5000'<br>"
                 "- 'Update savings to 300'<br>"
-                "- 'Reset data'")
+                "- 'Reset data'<br><br>"
+                "<b>Bankroll / Betting Math:</b><br>"
+                "- 'Set bankroll to 5000'<br>"
+                "- 'What is 2% of bankroll?'<br>"
+                "- 'Recommend conservative stake'<br>"
+                "- 'Recommend aggressive stake'<br>"
+                "- 'Set risk mode to conservative'<br>"
+                "- 'Set risk mode to aggressive'<br>"
+                "- 'Implied probability for -110'<br>"
+                "- 'Payout for stake 100 at -110'<br>"
+                "- 'Parlay odds for -110, +145, -105'")
+
+    # set bankroll to 5000
+    if "bankroll" in text and any(word in text for word in ["set", "update", "change", "make"]):
+        m = re.search(r"(?:set|update|change|make)\s+bankroll\s+(?:to\s+)?(\d+(?:\.\d+)?)", text)
+        if not m:
+            return "Try: <b>Set bankroll to 5000</b>"
+
+        updated_record = set_bankroll_balance(float(m.group(1)))
+        return f"Bankroll updated to <b>${updated_record.get('current_balance', 0):,.2f}</b>."
+
+    # set risk mode
+    if "risk mode" in text or ("set" in text and "aggressive" in text) or ("set" in text and "conservative" in text):
+        if "aggressive" in text:
+            user_data["risk_mode"] = "aggressive"
+            return "Risk mode set to <b>aggressive</b> (2–5% stake guidance)."
+        if "conservative" in text:
+            user_data["risk_mode"] = "conservative"
+            return "Risk mode set to <b>conservative</b> (1–2% stake guidance)."
+        return "Try: <b>Set risk mode to conservative</b> or <b>Set risk mode to aggressive</b>."
+
+    # recommend stake
+    if "recommend" in text and "stake" in text:
+        rec = recommend_stake(float(get_bankroll_balance()), user_data.get("risk_mode", "conservative"))
+        if not rec:
+            return "Bankroll must be set to a positive number first. Try: <b>Set bankroll to 5000</b>"
+        return (f"Recommended stake range (<b>{rec['mode']}</b>):<br>"
+                f"- {rec['low_pct']}%: <b>${rec['low']:,.2f}</b><br>"
+                f"- {rec['high_pct']}%: <b>${rec['high']:,.2f}</b>")
+
+    # percent of bankroll
+    if "bankroll" in text and parse_percent(text) is not None:
+        pct = parse_percent(text)
+        bankroll = float(get_bankroll_balance())
+        amt = bankroll * (pct / 100.0)
+        return f"{pct}% of bankroll (<b>${bankroll:,.2f}</b>) is <b>${amt:,.2f}</b>."
+
+    # implied probability for -110
+    if "implied" in text and "prob" in text:
+        odds = extract_first_american_odds(text)
+        if odds is None:
+            return "Try: <b>Implied probability for -110</b>"
+        try:
+            p = implied_probability(odds) * 100.0
+            return f"Implied probability for <b>{odds}</b> is <b>{p:.2f}%</b>."
+        except ValueError as e:
+            return str(e)
+
+    # payout for stake 100 at -110
+    if "payout" in text or "profit" in text:
+        stake = parse_stake(text)
+        odds = extract_first_american_odds(text)
+        if stake is None or odds is None:
+            return "Try: <b>Payout for stake 100 at -110</b>"
+        if stake <= 0:
+            return "Stake must be greater than 0."
+        try:
+            res = payout_for_stake(stake, odds)
+            return (f"For stake <b>${stake:,.2f}</b> at <b>{odds}</b>:<br>"
+                    f"- Decimal odds: <b>{res['decimal_odds']}</b><br>"
+                    f"- Profit: <b>${res['profit']:,.2f}</b><br>"
+                    f"- Total payout: <b>${res['total_payout']:,.2f}</b>")
+        except ValueError as e:
+            return str(e)
+
+    # parlay odds for -110, +145, -105
+    if "parlay" in text and ("odds" in text or "for" in text):
+        odds_list = re.findall(r"(?<!\d)([+-]?\d{2,4})(?!\d)", text)
+        if not odds_list or len(odds_list) < 2:
+            return "Try: <b>Parlay odds for -110, +145, -105</b>"
+        try:
+            decimals = [american_to_decimal(int(o)) for o in odds_list]
+            parlay_decimal = 1.0
+            for d in decimals:
+                parlay_decimal *= d
+
+            # Convert decimal -> American approximation
+            if parlay_decimal >= 2.0:
+                parlay_american = int(round((parlay_decimal - 1.0) * 100))
+                american_str = f"+{parlay_american}"
+            else:
+                parlay_american = int(round(-100 / (parlay_decimal - 1.0)))
+                american_str = f"{parlay_american}"
+
+            return (f"Parlay decimal odds: <b>{parlay_decimal:.4f}</b><br>"
+                    f"Approx. parlay American odds: <b>{american_str}</b>")
+        except Exception:
+            return "Could not parse parlay odds. Make sure you include valid odds like -110, +145."
+
+    if "odds" in text or "probability" in text:
+        return "Try: <b>Implied probability for -110</b> or <b>Payout for stake 100 at -110</b>."
+    if "bankroll" in text or "stake" in text:
+        return "Try: <b>Set bankroll to 5000</b> then <b>Recommend conservative stake</b>."
+    if "bet" in text or "parlay" in text:
+        return "Try: <b>Parlay odds for -110, +145, -105</b>."
 
     # reset data 
     if "reset" in text:
@@ -72,7 +242,9 @@ def handle_input(user_input):
             "income": 3000,
             "expenses": 1500,
             "savings": 200,
-            "categories": {"food": 300, "entertainment": 200, "bills": 1000}
+            "categories": {"food": 300, "entertainment": 200, "bills": 1000},
+            "bankroll": 5000.0,
+            "risk_mode": "conservative"
         })
         return "All data reset to default values."
 
@@ -234,6 +406,88 @@ def get_current_user():
     
     return user
 
+def get_or_create_bankroll(user_id: int, default_amount: float = 5000.0):
+    ensure_connection()
+    with conn.cursor() as c:
+        c.execute(
+            "SELECT id, current_balance, initial_bankroll, peak_balance, lowest_balance FROM bankrolls WHERE user_id = %s",
+            (user_id,),
+        )
+        bankroll = c.fetchone()
+
+        if bankroll:
+            return bankroll
+
+        c.execute(
+            """
+            INSERT INTO bankrolls (user_id, current_balance, initial_bankroll, peak_balance, lowest_balance)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (user_id, default_amount, default_amount, default_amount, default_amount),
+        )
+        conn.commit()
+
+    with conn.cursor() as c:
+        c.execute(
+            "SELECT id, current_balance, initial_bankroll, peak_balance, lowest_balance FROM bankrolls WHERE user_id = %s",
+            (user_id,),
+        )
+        return c.fetchone()
+
+
+def update_bankroll_balance(user_id: int, new_balance: float, bankroll_record: dict = None):
+    ensure_connection()
+    bankroll_record = bankroll_record or get_or_create_bankroll(user_id)
+
+    try:
+        new_balance = float(new_balance)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid bankroll amount.")
+
+    if new_balance < 0:
+        raise ValueError("Bankroll cannot be negative.")
+
+    peak_balance = bankroll_record.get("peak_balance") or new_balance
+    lowest_balance = bankroll_record.get("lowest_balance") or new_balance
+
+    peak_balance = max(float(peak_balance), new_balance)
+    lowest_balance = min(float(lowest_balance), new_balance)
+
+    with conn.cursor() as c:
+        c.execute(
+            """
+            UPDATE bankrolls
+            SET current_balance = %s,
+                peak_balance = %s,
+                lowest_balance = %s
+            WHERE user_id = %s
+            """,
+            (new_balance, peak_balance, lowest_balance, user_id),
+        )
+    conn.commit()
+
+    bankroll_record.update(
+        {
+            "current_balance": float(new_balance),
+            "peak_balance": float(peak_balance),
+            "lowest_balance": float(lowest_balance),
+        }
+    )
+
+    return bankroll_record
+
+
+def serialize_bankroll(record: dict):
+    if not record:
+        return {}
+
+    return {
+        "id": record.get("id"),
+        "current_balance": float(record.get("current_balance", 0)),
+        "initial_bankroll": float(record.get("initial_bankroll", 0)),
+        "peak_balance": float(record.get("peak_balance", 0)),
+        "lowest_balance": float(record.get("lowest_balance", 0)),
+    }
 
 @app.route("/")
 def index():
@@ -241,9 +495,47 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    authenticated, user, _ = authenticate_user(include_user=True)
+    bankroll_record = None
+
+    if authenticated:
+        bankroll_record = get_or_create_bankroll(user.get("id"))
+
     user_message = request.json.get("message", "")
-    reply = handle_input(user_message)
+    try:
+        reply = handle_input(
+            user_message,
+            bankroll_record=bankroll_record,
+            user_id=user.get("id") if authenticated else None,
+        )
+    except PermissionError as exc:
+        return make_response(jsonify({"response": str(exc)}), 401)
+
     return jsonify({"response": reply})
+
+@app.route("/bankroll", methods=["GET", "PUT"])
+@app.route("/api/bankroll", methods=["GET", "PUT"])
+def bankroll():
+    authenticated, user, _ = authenticate_user(include_user=True)
+    if not authenticated:
+        return user
+
+    bankroll_record = get_or_create_bankroll(user.get("id"))
+
+    if request.method == "GET":
+        return jsonify(serialize_bankroll(bankroll_record))
+
+    data = request.get_json() or {}
+    new_balance = data.get("current_balance")
+
+    try:
+        updated_record = update_bankroll_balance(user.get("id"), new_balance, bankroll_record)
+    except ValueError as exc:
+        return make_response(str(exc), 400)
+
+    return jsonify(serialize_bankroll(updated_record))
+
+
 
 @app.route("/mfa/setup", methods=["GET"])
 def mfa_setup():
@@ -258,6 +550,7 @@ def mfa_setup():
         return make_response("Invalid token payload.", 401)
 
     try:
+        ensure_connection()
         with conn.cursor() as c:
             c.execute(
                 "SELECT mfa_secret FROM users WHERE email = %s",
@@ -313,6 +606,7 @@ def mfa_validate():
     if not email:
         return make_response("Invalid token payload.", 401)
 
+    ensure_connection()
     with conn.cursor() as c:
         c.execute(
             "SELECT email, mfa_secret FROM users WHERE email = %s",
@@ -381,6 +675,7 @@ def login():
     if not email or not password:
         return make_response("Missing email or password.", 400)
 
+    ensure_connection()
     with conn.cursor() as c:
         c.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = c.fetchone()
@@ -476,6 +771,7 @@ def register():
     ).decode()
 
     try:
+        ensure_connection()
         with conn.cursor() as c:
             c.execute(
                 "INSERT INTO users (email, password_hash, username, display_name, password) VALUES (%s, %s, %s, %s, %s)",
