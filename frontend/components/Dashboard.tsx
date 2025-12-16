@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Header } from './Header';
 import { BankrollCard } from './BankrollCard';
 import { AIRecommendations } from './AIRecommendations';
@@ -18,6 +18,7 @@ import {
   updateBetTicketStatus,
   type BetTicket,
   type TicketStatus,
+  type BetLeg,
 } from './betHistoryStorage';
 
 export interface BetLeg {
@@ -75,7 +76,6 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [bankroll, setBankroll] = useState(() => {
     try {
@@ -123,9 +123,7 @@ export function Dashboard() {
         const res = await fetch('/api/validate', { credentials: 'include' });
         if (!res.ok) {
           navigate('/');
-          return;
         }
-        await loadBankroll();
       } catch {
         navigate('/');
       }
@@ -178,7 +176,7 @@ export function Dashboard() {
         : totalStake * (100 / Math.abs(totalOddsAmerican));
 
     const ticket: BetTicket = {
-      id: crypto.randomUUID(),
+      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       createdAt: new Date().toISOString(),
       legs: betSlipLegs,
       stake: totalStake,

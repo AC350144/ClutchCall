@@ -251,7 +251,7 @@ export default function AccountSettings({ isOpen, onClose, onProfileUpdate }: Ac
                 <Card className="bg-slate-800 border-slate-700">
                   <CardHeader>
                     <CardTitle className="text-white">Profile Information</CardTitle>
-                    <CardDescription>Update your personal details and avatar</CardDescription>
+                    <CardDescription className="text-slate-400">Update your personal details and avatar</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Avatar Selection */}
@@ -349,7 +349,7 @@ export default function AccountSettings({ isOpen, onClose, onProfileUpdate }: Ac
                 <Card className="bg-slate-800 border-slate-700">
                   <CardHeader>
                     <CardTitle className="text-white">Change Password</CardTitle>
-                    <CardDescription>Update your password to keep your account secure</CardDescription>
+                    <CardDescription className="text-slate-400">Update your password to keep your account secure</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -398,7 +398,7 @@ export default function AccountSettings({ isOpen, onClose, onProfileUpdate }: Ac
                 <Card className="bg-slate-800 border-slate-700">
                   <CardHeader>
                     <CardTitle className="text-white">Two-Factor Authentication</CardTitle>
-                    <CardDescription>Add an extra layer of security to your account</CardDescription>
+                    <CardDescription className="text-slate-400">Add an extra layer of security to your account</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between">
@@ -419,7 +419,7 @@ export default function AccountSettings({ isOpen, onClose, onProfileUpdate }: Ac
                 <Card className="bg-slate-800 border-slate-700">
                   <CardHeader>
                     <CardTitle className="text-white">Betting Preferences</CardTitle>
-                    <CardDescription>Customize your betting experience</CardDescription>
+                    <CardDescription className="text-slate-400">Customize your betting experience</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Experience Level */}
