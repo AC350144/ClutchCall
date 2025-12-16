@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -12,8 +13,12 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '')
       },
-      cors: false,
-    }
-    
+      '/chat': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+    cors: false,
   }
 })
