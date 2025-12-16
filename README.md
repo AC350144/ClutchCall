@@ -137,6 +137,8 @@ python -m pytest tests/
 - **Bankroll Management** - Track betting balance and ROI
 - **AI Recommendations** - Smart betting suggestions based on budget
 - **Bet Slip** - Unified interface for managing bets
+- **Chat Widget** - Interactive AI assistant for betting guidance
+- **Responsive Design** - Works on desktop and mobile devices
 
 ## Database Schema
 
@@ -148,10 +150,3 @@ The application uses MySQL with the following main tables:
 - `bet_types` - Types of bets available
 
 See `backend/database.sql` for the complete schema.
-
-## Contributing
-
-1. Create a new branch for your feature
-2. Make your changes
-3. Run tests to ensure everything works
-4. Submit a pull request
