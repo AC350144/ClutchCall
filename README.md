@@ -72,11 +72,22 @@ mysql -u your_username -p < database.sql
 
 # Update database credentials in db.py if needed
 
+
+
 # Run the Flask server
 python main.py
-```
+
+# Or use env
+
+$env:DB_HOST = "localhost"
+$env:DB_USER = "root"           # or your MySQL username
+$env:DB_PASSWORD = "yourpassword"  # your MySQL password
+$env:DB_NAME = "clutchcall"
+python main.py
+
 
 The backend will run on `http://localhost:3000`
+```
 
 ### 3. Frontend Setup
 
